@@ -37,6 +37,9 @@ setup(
             "black>=23.0.0",
             "flake8>=6.0.0",
         ],
+        "redis": [
+            "redis>=5.0.0",
+        ],
     },
     keywords="behavioral biometrics fraud-detection security personalization fintech",
     project_urls={

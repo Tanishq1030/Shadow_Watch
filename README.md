@@ -16,7 +16,11 @@ Shadow Watch silently learns user behavior patterns and uses them for:
 ## Installation
 
 ```bash
+# Basic installation
 pip install shadowwatch
+
+# With Redis support (recommended for production)
+pip install shadowwatch[redis]
 ```
 
 ## Quick Start

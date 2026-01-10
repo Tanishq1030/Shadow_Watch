@@ -8,9 +8,11 @@ All database sessions and configurations are injected.
 from typing import Dict, Optional
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from shadowwatch.utils.license import verify_license_key
+from shadowwatch.utils.cache import create_cache, CacheBackend
 from shadowwatch.core.tracker import track_activity
 from shadowwatch.core.scorer import generate_library_snapshot
-from shadowwatch.core.fingerprint import verify_fingerprint, calculate_trust_score
+from shadowwatch.core.fingerprint import verify_fingerprint
+from shadowwatch.core.trust_score import calculate_trust_score
 
 
 class ShadowWatch:
@@ -21,13 +23,20 @@ class ShadowWatch:
         database_url: SQLAlchemy async database URL (e.g., "postgresql+asyncpg://...")
         license_key: Your Shadow Watch license key (get trial at shadowwatch.dev)
         license_server_url: Optional custom license server URL
+        redis_url: Optional Redis URL for shared caching (recommended for production)
+                  Example: "redis://localhost:6379"
+                  If None, uses in-memory cache (single-instance only)
+    
+    ⚠️ IMPORTANT: For multi-instance deployments, MUST provide redis_url!
+    Without Redis, each instance will have separate cache → data inconsistency.
     """
     
     def __init__(
         self,
         database_url: str,
         license_key: str,
-        license_server_url: str = "https://license-shadowwatch.railway.app"
+        license_server_url: str = "https://license-shadowwatch.railway.app",
+        redis_url: Optional[str] = None
     ):
         self.database_url = database_url
         self.license_key = license_key
@@ -41,14 +50,26 @@ class ShadowWatch:
             expire_on_commit=False
         )
         
-        # Verify license on initialization
-        self._license_verified = False
+        # Shared cache (Redis for production, Memory for dev)
+        self.cache: CacheBackend = create_cache(redis_url)
+        
+        # Note: License verification now cached in Redis/Memory, not instance variable
     
     async def _ensure_license(self):
-        """Verify license key (only once per instance)"""
-        if self._license_verified:
-            return
+        """
+        Verify license key (cached for 24 hours)
         
+        Uses shared cache to avoid re-verification on every request
+        across multiple instances.
+        """
+        cache_key = f"shadowwatch:license:{self.license_key}"
+        
+        # Check cache first
+        cached_license = await self.cache.get(cache_key)
+        if cached_license:
+            return  # Already verified
+        
+        # Verify with license server
         license_data = await verify_license_key(
             self.license_key,
             self.license_server_url
@@ -57,7 +78,9 @@ class ShadowWatch:
         if not license_data["valid"]:
             raise Exception(f"Invalid license: {license_data.get('error', 'Unknown error')}")
         
-        self._license_verified = True
+        # Cache for 24 hours (86400 seconds)
+        await self.cache.set(cache_key, license_data, ttl_seconds=86400)
+        
         print(f"✅ Shadow Watch: Licensed to {license_data['customer']} ({license_data['tier']})")
     
     async def track(
