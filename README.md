@@ -111,7 +111,7 @@ Tables created:
 | Growth | $1,500/month | 1,000,000 | Slack |
 | Enterprise | Custom | Unlimited | Dedicated |
 
-**Get trial license:** [shadowwatch.dev](https://shadowwatch.dev)
+**Get trial license mail To:** tanishqdasari2004@gmail.com  
 
 ## Documentation
 
@@ -138,7 +138,7 @@ Built by [Tanishq](https://github.com/Tanishq1030) during development of [QuantF
 
 ## Questions?
 
-- Email: tanishq@shadowwatch.dev
+- Email: tanishqdasari2004@gmail.com
 - GitHub Issues: [github.com/Tanishq1030/Shadow_Watch/issues](https://github.com/Tanishq1030/Shadow_Watch/issues)
 
 ---
