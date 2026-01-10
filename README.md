@@ -111,7 +111,7 @@ Tables created:
 | Growth | $1,500/month | 1,000,000 | Slack |
 | Enterprise | Custom | Unlimited | Dedicated |
 
-**Get trial license mail To:** tanishqdasari2004@gmail.com  
+**For trial license mail To:** tanishqdasari2004@gmail.com  
 
 ## Documentation
 
