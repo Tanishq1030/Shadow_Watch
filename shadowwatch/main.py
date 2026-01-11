@@ -43,6 +43,19 @@ class ShadowWatch:
         self.license_key = license_key
         self.license_server_url = license_server_url
         
+        # Guardrail: Warn against SQLite async in production
+        if "sqlite+aiosqlite" in database_url.lower():
+            import warnings
+            warnings.warn(
+                "\n"
+                "⚠️  SQLite async is supported for demos/testing only.\n"
+                "   Schema propagation across async connections is unreliable.\n"
+                "   For production, use PostgreSQL or MySQL.\n"
+                "   See: https://github.com/Tanishq1030/Shadow_Watch#database-requirements",
+                UserWarning,
+                stacklevel=2
+            )
+        
         # Local dev mode (no license, 1000 events max)
         self._local_mode = (license_key is None)
         self._event_limit = 1000 if self._local_mode else None
