@@ -13,6 +13,7 @@ from shadowwatch.core.tracker import track_activity
 from shadowwatch.core.scorer import generate_library_snapshot
 from shadowwatch.core.fingerprint import verify_fingerprint
 from shadowwatch.core.trust_score import calculate_trust_score
+from shadowwatch.models import Base  # For init_database()
 
 
 class ShadowWatch:
@@ -34,13 +35,18 @@ class ShadowWatch:
     def __init__(
         self,
         database_url: str,
-        license_key: str,
-        license_server_url: str = "https://license-shadowwatch.railway.app",
+        license_key: Optional[str] = None,
+        license_server_url: str = "https://shadow-watch-three.vercel.app",
         redis_url: Optional[str] = None
     ):
         self.database_url = database_url
         self.license_key = license_key
         self.license_server_url = license_server_url
+        
+        # Local dev mode (no license, 1000 events max)
+        self._local_mode = (license_key is None)
+        self._event_limit = 1000 if self._local_mode else None
+        self._event_count = 0
         
         # Create async engine
         self.engine = create_async_engine(database_url, echo=False)
@@ -53,15 +59,36 @@ class ShadowWatch:
         # Shared cache (Redis for production, Memory for dev)
         self.cache: CacheBackend = create_cache(redis_url)
         
+        # Show local mode warning
+        if self._local_mode:
+            print("\n" + "="*70)
+            print("⚠️  Shadow Watch: LOCAL DEV MODE (No License Required)")
+            print("="*70)
+            print("   • Limited to 1,000 events")
+            print("   • For production, get free trial:")
+            print("      https://shadow-watch-three.vercel.app/trial")
+            print("="*70 + "\n")
+        
         # Note: License verification now cached in Redis/Memory, not instance variable
     
     async def _ensure_license(self):
         """
         Verify license key (cached for 24 hours)
         
+        Skips verification in local dev mode.
         Uses shared cache to avoid re-verification on every request
         across multiple instances.
         """
+        # Skip license check in local dev mode
+        if self._local_mode:
+            if self._event_count >= self._event_limit:
+                raise Exception(
+                    f"\n❌ Local dev limit reached ({self._event_limit} events)\n"
+                    f"   Get free trial: https://shadow-watch-three.vercel.app/trial\n"
+                )
+            self._event_count += 1
+            return
+        
         cache_key = f"shadowwatch:license:{self.license_key}"
         
         # Check cache first
@@ -82,6 +109,19 @@ class ShadowWatch:
         await self.cache.set(cache_key, license_data, ttl_seconds=86400)
         
         print(f"✅ Shadow Watch: Licensed to {license_data['customer']} ({license_data['tier']})")
+    
+    async def init_database(self):
+        """
+        Initialize database tables
+        
+        Creates all required Shadow Watch tables. Call this once during setup.
+        
+        Example:
+            sw = ShadowWatch(...)
+            await sw.init_database()
+        """
+        async with self.engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
     
     async def track(
         self,

@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="shadowwatch",
-    version="0.1.0",
+    version="0.3.0",
     author="Tanishq Dasari",
     author_email="tanishqdasari2004@gmail.com",
     description="Behavioral intelligence for your application - passive biometrics, fraud detection, personalization",

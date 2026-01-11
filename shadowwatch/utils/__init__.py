@@ -7,7 +7,8 @@ from shadowwatch.utils.validators import (
     validate_user_id,
     validate_entity_id,
     sanitize_metadata,
-    VALID_ACTIONS
+    get_action_weight,
+    STANDARD_ACTIONS
 )
 
 __all__ = [
@@ -24,5 +25,6 @@ __all__ = [
     "validate_user_id",
     "validate_entity_id",
     "sanitize_metadata",
-    "VALID_ACTIONS"
+    "get_action_weight",
+    "STANDARD_ACTIONS"
 ]

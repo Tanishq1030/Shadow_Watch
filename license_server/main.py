@@ -92,6 +92,61 @@ async def admin_generate_keys(count: int = 10):
     }
 
 
+from pydantic import EmailStr
+
+class TrialRequest(BaseModel):
+    name: str
+    email: EmailStr
+    company: str = "Individual"
+    use_case: str = ""
+
+
+@app.post("/trial")
+async def create_trial_license(req: TrialRequest):
+    """
+    Self-service trial license generation
+    
+    Instantly generates a 30-day trial license (10,000 events).
+    No manual approval required!
+    
+    Returns: {
+        "success": true,
+        "license_key": "SW-TRIAL-XXXX-XXXX-XXXX-XXXX",
+        "expires_at": "2026-02-10T...",
+        "max_events": 10000
+    }
+    """
+    import secrets
+    import string
+    from datetime import timedelta
+    
+    def generate_trial_key():
+        chars = string.ascii_uppercase + string.digits
+        parts = [''.join(secrets.choice(chars) for _ in range(4)) for _ in range(4)]
+        return f"SW-TRIAL-{'-'.join(parts)}"
+    
+    # Generate trial license
+    license_key = generate_trial_key()
+    expires_at = (datetime.utcnow() + timedelta(days=30)).isoformat()
+    
+    # Save to Redis/KV
+    LicenseStore.save_license(
+        license_key=license_key,
+        tier="trial",
+        max_events=10000,
+        customer_name=req.name,
+        customer_email=req.email,
+        expires_at=expires_at
+    )
+    
+    return {
+        "success": True,
+        "license_key": license_key,
+        "expires_at": expires_at,
+        "max_events": 10000,
+        "message": "Trial license created! Valid for 30 days."
+    }
+
 @app.post("/verify")
 async def verify_license(req: VerifyRequest):
     """
