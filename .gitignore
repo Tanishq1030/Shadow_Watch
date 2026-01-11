@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# C extensions
+*.so
+
 # Distribution / packaging
 .Python
 build/
@@ -17,39 +20,78 @@ parts/
 sdist/
 var/
 wheels/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual environments
 venv/
 env/
 ENV/
+env.bak/
+venv.bak/
 
 # IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
 # Testing
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.tox/
+.nox/
 
 # Misc
 .DS_Store
 *.log
+Thumbs.db
+Desktop.ini
 
-# Internal dev files
+# Test databases (SQLite)
+*.db
+*.sqlite
+*.sqlite3
+test_*.db
+*_test.db
+*_demo.db
+client_test.db
+ecommerce_demo.db
+gaming_demo.db
+social_demo.db
+simple_test.db
+test_local_dev.db
+test_shadowwatch.db
+
+# Redis dumps
+dump.rdb
+
+# Temporary files
+*.tmp
+*.temp
+$null
+null
+
+# Internal dev files (not for public repo)
 DAY1_COMPLETE.md
 DAY2_COMPLETE.md
 DAY3_COMPLETE.md
 DAY4_COMPLETE.md
 DAY5_COMPLETE.md
-verify_package.py
 CACHE_FIX.md
 DAY2_REFACTORING_COMPLETE.md
 DEPLOYMENT.md
-license_server/admin_endpoint_snippet.py
+verify_package.py
 test_pypi_install.py
+license_server/admin_endpoint_snippet.py
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
