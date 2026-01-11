@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
-    {name = "Tanishq", email = "tanishq@shadowwatch.dev"}
+    {name = "Tanishq Dasari", email = "tanishqdasari2004@gmail.com"}
 ]
 keywords = ["behavioral", "biometrics", "fraud-detection", "security", "personalization"]
 classifiers = [

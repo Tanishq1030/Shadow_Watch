@@ -1,0 +1,22 @@
+include README.md
+include LICENSE
+include pyproject.toml
+
+# Include only the shadowwatch package
+recursive-include shadowwatch *.py
+
+# Exclude everything else
+recursive-exclude tests *
+recursive-exclude examples *
+recursive-exclude docs *
+recursive-exclude license_server *
+
+# Exclude development documentation
+exclude CACHE_FIX.md
+exclude DAY1_COMPLETE.md
+exclude DAY2_REFACTORING_COMPLETE.md
+exclude DEPLOYMENT.md
+exclude Dockerfile
+exclude verify_package.py
+exclude test_pypi_install.py
+exclude license_server/admin_endpoint_snippet.py
