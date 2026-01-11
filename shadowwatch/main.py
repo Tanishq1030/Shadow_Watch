@@ -61,8 +61,18 @@ class ShadowWatch:
         self._event_limit = 1000 if self._local_mode else None
         self._event_count = 0
         
-        # Create async engine
-        self.engine = create_async_engine(database_url, echo=False)
+        # Create async engine with proper connection args
+        # Handle PostgreSQL sslmode parameter
+        connect_args = {}
+        if "postgresql" in database_url.lower() or "postgres" in database_url.lower():
+            # asyncpg uses 'ssl' instead of 'sslmode'
+            # Remove sslmode from URL and handle via connect_args if needed
+            if "sslmode" in database_url.lower():
+                # For now, just use the URL without sslmode
+                # asyncpg will use SSL by default with most cloud providers
+                database_url = database_url.split('?')[0]  # Remove query params
+        
+        self.engine = create_async_engine(database_url, echo=False, connect_args=connect_args)
         self.AsyncSessionLocal = async_sessionmaker(
             self.engine,
             class_=AsyncSession,
