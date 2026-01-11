@@ -144,6 +144,12 @@ class ShadowWatch:
             sw = ShadowWatch(...)
             await sw.init_database()
         """
+        # CRITICAL: Import all models to register them with Base.metadata
+        # Each model must be imported before create_all() is called
+        from shadowwatch.models.interest import UserInterest
+        from shadowwatch.models.activity import UserActivityEvent
+        from shadowwatch.models.library import LibraryVersion
+        
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
     
