@@ -5,10 +5,10 @@ Stores point-in-time snapshots of user libraries for versioning and fingerprinti
 """
 
 from sqlalchemy import Column, Integer, String, DateTime, JSON
-from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime, timezone
 
-Base = declarative_base()
+# Import shared Base from parent package
+from shadowwatch.models import Base
 
 
 class LibraryVersion(Base):

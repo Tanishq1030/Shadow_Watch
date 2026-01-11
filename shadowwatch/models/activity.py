@@ -5,10 +5,10 @@ Tracks raw user activity events for behavioral analysis
 """
 
 from sqlalchemy import Column, Integer, String, DateTime, JSON
-from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime, timezone
 
-Base = declarative_base()
+# Import shared Base from parent package
+from shadowwatch.models import Base
 
 
 class UserActivityEvent(Base):

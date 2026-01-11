@@ -5,10 +5,10 @@ Stores aggregated interest scores based on user activity
 """
 
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime
-from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime, timezone
 
-Base = declarative_base()
+# Import shared Base from parent package
+from shadowwatch.models import Base
 
 
 class UserInterest(Base):
