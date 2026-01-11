@@ -1,5 +1,10 @@
 # Shadow Watch
 
+[![PyPI version](https://badge.fury.io/py/shadowwatch.svg)](https://badge.fury.io/py/shadowwatch)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Downloads](https://pepy.tech/badge/shadowwatch)](https://pepy.tech/project/shadowwatch)
+
 **"Like a shadow — always there, never seen."**
 
 Behavioral intelligence for your application. Add passive behavioral biometrics, personalization, and fraud detection with zero user friction.
@@ -21,7 +26,12 @@ pip install shadowwatch
 
 # With Redis support (recommended for production)
 pip install shadowwatch[redis]
+
+# With FastAPI integration
+pip install shadowwatch[fastapi]
 ```
+
+**Get your free trial license:** Email tanishqdasari2004@gmail.com or visit the [license server](https://shadow-watch-three.vercel.app)
 
 ## Quick Start
 
@@ -115,13 +125,13 @@ Tables created:
 | Growth | $1,500/month | 1,000,000 | Slack |
 | Enterprise | Custom | Unlimited | Dedicated |
 
-**For trial license mail To:** tanishqdasari2004@gmail.com  
+**For trial license:** tanishqdasari2004@gmail.com  
 
 ## Documentation
 
-- [Getting Started Guide](./docs/getting-started.md) (coming soon)
-- [API Reference](./docs/api-reference.md) (coming soon)
-- [Integration Guides](./docs/integrations/) (coming soon)
+- [Getting Started Guide](./docs/GETTING_STARTED.md) - 5-minute setup
+- [API Reference](./docs/API_REFERENCE.md) - Complete API documentation
+- [Integration Guides](./docs/INTEGRATION_GUIDES.md) - FastAPI, Django, Flask
 
 ## Comparison
 

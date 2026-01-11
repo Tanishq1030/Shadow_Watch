@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,7 +11,7 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             line-height: 1.6;
@@ -22,15 +23,15 @@
             justify-content: center;
             padding: 20px;
         }
-        
+
         .container {
             max-width: 600px;
             background: white;
             border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 40px;
         }
-        
+
         h1 {
             font-size: 2.5rem;
             margin-bottom: 10px;
@@ -39,35 +40,35 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
-        
+
         .tagline {
             font-size: 1.1rem;
             color: #666;
             margin-bottom: 30px;
             font-style: italic;
         }
-        
+
         .features {
             margin: 30px 0;
         }
-        
+
         .feature {
             display: flex;
             align-items: flex-start;
             margin-bottom: 15px;
         }
-        
+
         .feature-icon {
             font-size: 1.5rem;
             margin-right: 12px;
             min-width: 30px;
         }
-        
+
         .feature-text {
             font-size: 1rem;
             color: #555;
         }
-        
+
         .cta {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -80,12 +81,12 @@
             margin-top: 20px;
             transition: transform 0.2s, box-shadow 0.2s;
         }
-        
+
         .cta:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
         }
-        
+
         .trial-info {
             background: #f8f9fa;
             border-left: 4px solid #667eea;
@@ -93,35 +94,36 @@
             margin: 20px 0;
             border-radius: 4px;
         }
-        
+
         .github-link {
             margin-top: 30px;
             text-align: center;
             color: #666;
         }
-        
+
         .github-link a {
             color: #667eea;
             text-decoration: none;
             font-weight: 500;
         }
-        
+
         .github-link a:hover {
             text-decoration: underline;
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>🌑 Shadow Watch</h1>
         <p class="tagline">"Like a shadow — always there, never seen."</p>
-        
+
         <p style="font-size: 1.1rem; margin-bottom: 20px;">
-            Add behavioral intelligence to your application with zero user friction. 
-            Shadow Watch silently learns user patterns for personalization, fraud detection, 
+            Add behavioral intelligence to your application with zero user friction.
+            Shadow Watch silently learns user patterns for personalization, fraud detection,
             and passive authentication.
         </p>
-        
+
         <div class="trial-info">
             <strong>🎉 Free 30-Day Trial</strong><br>
             • 10,000 events/month<br>
@@ -129,7 +131,7 @@
             • No credit card required<br>
             • Email support
         </div>
-        
+
         <div class="features">
             <div class="feature">
                 <div class="feature-icon">🔐</div>
@@ -138,7 +140,7 @@
                     Detect account takeover attempts through behavioral fingerprinting
                 </div>
             </div>
-            
+
             <div class="feature">
                 <div class="feature-icon">🎯</div>
                 <div class="feature-text">
@@ -146,7 +148,7 @@
                     Build user interest profiles based on actual behavior, not surveys
                 </div>
             </div>
-            
+
             <div class="feature">
                 <div class="feature-icon">🤖</div>
                 <div class="feature-text">
@@ -154,7 +156,7 @@
                     Understand what users care about without asking
                 </div>
             </div>
-            
+
             <div class="feature">
                 <div class="feature-icon">🚨</div>
                 <div class="feature-text">
@@ -163,27 +165,34 @@
                 </div>
             </div>
         </div>
-        
-        <a href="mailto:tanishq@shadowwatch.dev?subject=Shadow%20Watch%20Trial%20Request&body=Please%20send%20me%20a%2030-day%20trial%20license%20key.%0A%0ACompany%3A%20%0AUse%20Case%3A%20" class="cta">
+
+        <a href="mailto:tanishqdasari2004@gmail.com?subject=Shadow%20Watch%20Trial%20Request&body=Please%20send%20me%20a%2030-day%20trial%20license%20key.%0A%0ACompany%3A%20%0AUse%20Case%3A%20"
+            class="cta">
             Request Trial Key →
         </a>
-        
+
         <p style="margin-top: 30px; font-size: 0.9rem; color: #666;">
-            Install in 3 steps:
+            Install from PyPI in 3 steps:
         </p>
-        <pre style="background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 0.9rem; margin-top: 10px;">pip install shadowwatch
+        <pre
+            style="background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 0.9rem; margin-top: 10px;">pip install shadowwatch
 
 from shadowwatch import ShadowWatch
 sw = ShadowWatch(
     database_url="...",
     license_key="SW-TRIAL-XXXX-..."
 )</pre>
-        
+
         <div class="github-link">
+            <a href="https://pypi.org/project/shadowwatch/" target="_blank"
+                style="display: block; margin-bottom: 10px;">
+                📦 View on PyPI →
+            </a>
             <a href="https://github.com/Tanishq1030/Shadow_Watch" target="_blank">
                 📖 View Documentation on GitHub →
             </a>
         </div>
     </div>
 </body>
+
 </html>
