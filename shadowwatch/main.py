@@ -62,17 +62,18 @@ class ShadowWatch:
         self._event_count = 0
         
         # Create async engine with proper connection args
-        # Handle PostgreSQL sslmode parameter
+        # Handle PostgreSQL sslmode parameter (asyncpg doesn't support it in URL)
         connect_args = {}
-        if "postgresql" in database_url.lower() or "postgres" in database_url.lower():
-            # asyncpg uses 'ssl' instead of 'sslmode'
-            # Remove sslmode from URL and handle via connect_args if needed
-            if "sslmode" in database_url.lower():
-                # For now, just use the URL without sslmode
-                # asyncpg will use SSL by default with most cloud providers
-                database_url = database_url.split('?')[0]  # Remove query params
+        clean_url = database_url
         
-        self.engine = create_async_engine(database_url, echo=False, connect_args=connect_args)
+        if "postgresql" in database_url.lower() or "postgres" in database_url.lower():
+            # asyncpg doesn't accept sslmode as URL parameter
+            # Strip ALL query parameters from PostgreSQL URLs
+            if "?" in database_url:
+                clean_url = database_url.split("?")[0]
+                # Note: SSL will be negotiated automatically by asyncpg
+        
+        self.engine = create_async_engine(clean_url, echo=False, connect_args=connect_args)
         self.AsyncSessionLocal = async_sessionmaker(
             self.engine,
             class_=AsyncSession,
