@@ -13,14 +13,18 @@ if not DATABASE_URL:
     print("⚠️ DATABASE_URL not set. Using local SQLite for testing.")
     DATABASE_URL = "sqlite:///./local_test.db"
 else:
-    # Cleanup URL (sometimes Vercel env vars have extra quotes or whitespace)
+    # Cleanup URL
     DATABASE_URL = DATABASE_URL.strip().strip('"').strip("'")
+    
+    # SQLAlchemy 1.4+ requires postgresql:// instead of postgres://
     if DATABASE_URL.startswith("postgres://"):
-        # SQLAlchemy 1.4+ requires postgresql:// instead of postgres://
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     
-    # Debug (partial mask for security)
-    print(f"📡 Database connection attempt: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else 'No user/pass'}")
+    # Safety check: If for some reason it became postgresqll:// due to double replacement
+    if DATABASE_URL.startswith("postgresqll://"):
+        DATABASE_URL = DATABASE_URL.replace("postgresqll://", "postgresql://", 1)
+    
+    print(f"📡 Database connection initialized")
     
 connect_args = {}
 
