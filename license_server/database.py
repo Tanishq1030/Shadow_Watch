@@ -4,33 +4,30 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 
-# Database connection string (from environment)
-DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
+# Database connection string (from Supabase environment variable)
+DATABASE_URL = os.getenv("POSTGRES_URL")
 
 if not DATABASE_URL:
-    raise ValueError("Neither DATABASE_URL nor POSTGRES_URL environment variable is set")
+    raise ValueError("POSTGRES_URL environment variable is not set")
 
-# Fallback for local testing
-if not DATABASE_URL:
-    DATABASE_URL = "sqlite:///./local_test.db"
-    connect_args = {}
-else:
-    DATABASE_URL = DATABASE_URL.strip().strip('"').strip("'")
-    
-    # Keep as PostgreSQL (CockroachDB is PostgreSQL-compatible)
-    if DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    elif DATABASE_URL.startswith("cockroachdb+psycopg2://"):
-        DATABASE_URL = DATABASE_URL.replace("cockroachdb+psycopg2://", "postgresql://", 1)
-    
-    # Ensure sslmode=require for CockroachDB
-    if "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL:
-        if "?" not in DATABASE_URL:
-            DATABASE_URL += "?sslmode=require"
-        elif "sslmode" not in DATABASE_URL:
-            DATABASE_URL += "&sslmode=require"
-    
-    connect_args = {}
+# Clean up the URL
+DATABASE_URL = DATABASE_URL.strip().strip('"').strip("'")
+
+# Keep as PostgreSQL (Supabase uses PostgreSQL)
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Ensure sslmode=require for Supabase
+if "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL:
+    if "?" not in DATABASE_URL:
+        DATABASE_URL += "?sslmode=require"
+    elif "sslmode" not in DATABASE_URL:
+        DATABASE_URL += "&sslmode=require"
+
+connect_args = {}
+DATABASE_URL += "&sslmode=require"
+
+connect_args = {}
 
 try:
     engine = create_engine(
