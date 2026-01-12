@@ -44,7 +44,7 @@ const GetLicense = () => {
         setIsGenerating(true);
 
         try {
-            const response = await fetch("https://shadow-watch-two.vercel.app/trial", {
+            const response = await fetch("https://shadow-watch-ten.vercel.app/trial", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -190,7 +190,7 @@ const ServerStat = ({ label, endpoint, dataKey }: { label: string, endpoint: str
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const res = await fetch(`https://shadow-watch-two.vercel.app${endpoint}`);
+                const res = await fetch(`https://shadow-watch-ten.vercel.app${endpoint}`);
                 if (res.ok) {
                     const data = await res.json();
                     setValue(data[dataKey] || 0);
