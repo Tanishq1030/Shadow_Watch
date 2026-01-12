@@ -55,13 +55,18 @@ async def startup():
     print("💾 Storage: Redis (Hot) + PlanetScale MySQL (Cold)")
 
 
+@app.on_event("startup")
+async def startup_event():
+    print("🚀 Shadow Watch License Server v1.0.5 Starting...")
+    print(f"📡 DB URL Present: {bool(os.getenv('DATABASE_URL'))}")
+
 @app.get("/")
 async def root():
     """Health check endpoint"""
     return {
         "service": "Shadow Watch License Server",
         "status": "operational",
-        "version": "1.0.4",
+        "version": "1.0.5",
         "storage": "Redis + MySQL"
     }
 
