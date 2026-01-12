@@ -39,6 +39,8 @@ class ResetRequest(BaseModel):
 
 # Dependency
 def get_db():
+    if SessionLocal is None:
+        raise RuntimeError("Database not initialized - check DATABASE_URL configuration")
     db = SessionLocal()
     try:
         yield db
