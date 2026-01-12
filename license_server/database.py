@@ -5,7 +5,10 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 
 # Database connection string (from environment)
-DATABASE_URL = os.getenv("PLANETSCALE_URL") or os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
+
+if not DATABASE_URL:
+    raise ValueError("Neither DATABASE_URL nor POSTGRES_URL environment variable is set")
 
 # Fallback for local testing
 if not DATABASE_URL:
