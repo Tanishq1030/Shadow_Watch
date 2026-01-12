@@ -64,7 +64,7 @@ def get_db():
 
 @app.on_event("startup")
 async def startup_event():
-    print("🚀 Shadow Watch License Server v1.1.1 Starting...")
+    print("🚀 Shadow Watch License Server v1.1.2 Starting...")
     print(f"📡 DB URL Present: {bool(os.getenv('DATABASE_URL'))}")
 
 # Initialize DB
@@ -74,13 +74,18 @@ async def root():
     return {
         "service": "Shadow Watch License Server",
         "status": "operational",
-        "version": "1.1.1",
+        "version": "1.1.2",
         "storage": "Redis + MySQL"
     }
 
 @app.get("/health")
 async def health_check(db: Session = Depends(get_db)):
     db_url = os.getenv("DATABASE_URL") or ""
+    # Non-sensitive parsing
+    host_part = db_url.split("@")[-1] if "@" in db_url else ""
+    host = host_part.split("/")[0] if "/" in host_part else host_part
+    db_name = host_part.split("/")[1].split("?")[0] if "/" in host_part else ""
+    
     health = {
         "status": "checking",
         "database": "unknown",
@@ -88,7 +93,9 @@ async def health_check(db: Session = Depends(get_db)):
         "env": {
             "has_db_url": bool(db_url),
             "db_protocol": db_url.split(":")[0] if ":" in db_url else "none",
-            "db_host_len": len(db_url.split("@")[-1].split("/")[0]) if "@" in db_url else 0,
+            "db_host_len": len(host),
+            "db_port": host.split(":")[-1] if ":" in host else "default",
+            "db_name_len": len(db_name),
             "has_redis_url": bool(os.getenv("REDIS_URL") or os.getenv("KV_REST_API_URL")),
         }
     }
