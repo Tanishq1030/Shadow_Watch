@@ -13,8 +13,12 @@ if not DATABASE_URL:
     connect_args = {}
 else:
     DATABASE_URL = DATABASE_URL.strip().strip('"').strip("'")
+    
+    # Use CockroachDB dialect for better compatibility
     if DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "cockroachdb+psycopg2://", 1)
+    elif DATABASE_URL.startswith("postgresql://"):
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "cockroachdb+psycopg2://", 1)
     
     # Ensure sslmode=require for CockroachDB
     if "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL:
