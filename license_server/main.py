@@ -1,13 +1,32 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from datetime import datetime
+import secrets
+import string
+from datetime import timedelta
+from sqlalchemy.orm import Session
 
 # Import Redis-based store (works with Vercel KV or local Redis)
 from kv_store import LicenseStore
 
+# Import PlanetScale DB
+from database import SessionLocal, init_db, User, AuditLog, Payment
+
 app = FastAPI(title="Shadow Watch License Server")
 
-# No database initialization needed (Redis/KV is managed externally)
+# Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Initialize DB (create tables if needed - good for serverless cold starts)
+try:
+    init_db()
+except Exception as e:
+    print(f"⚠️ DB Init Warning: {e}")
 
 # Request/Response models
 class VerifyRequest(BaseModel):
@@ -18,12 +37,11 @@ class ReportRequest(BaseModel):
     events_count: int
     timestamp: str
 
-
 @app.on_event("startup")
 async def startup():
     """Startup message"""
     print("✅ Shadow Watch License Server started")
-    print("💾 Storage: Redis/Vercel KV (serverless-compatible)")
+    print("💾 Storage: Redis (Hot) + PlanetScale MySQL (Cold)")
 
 
 @app.get("/")
@@ -33,27 +51,15 @@ async def root():
         "service": "Shadow Watch License Server",
         "status": "operational",
         "version": "1.0.0",
-        "storage": "Redis/Vercel KV"
+        "storage": "Redis + MySQL"
     }
 
 
 @app.post("/admin/generate-keys")
-async def admin_generate_keys(count: int = 10):
+async def admin_generate_keys(count: int = 10, db: Session = Depends(get_db)):
     """
     Admin endpoint: Generate trial license keys
-    
-    Usage:
-        curl -X POST "https://your-server.com/admin/generate-keys?count=10"
-    
-    Args:
-        count: Number of trial keys to generate (default: 10)
-    
-    Returns:
-        JSON with generated keys and expiration date
     """
-    import secrets
-    import string
-    from datetime import timedelta
     
     def generate_key():
         """Generate unique trial key"""
@@ -71,6 +77,7 @@ async def admin_generate_keys(count: int = 10):
     for i in range(count):
         key = generate_key()
         
+        # Save to Redis
         success = LicenseStore.save_license(
             license_key=key,
             tier="trial",
@@ -82,6 +89,16 @@ async def admin_generate_keys(count: int = 10):
         
         if success:
             created_keys.append(key)
+            # Log to MySQL
+            log = AuditLog(
+                action="license.created_batch",
+                target_id=key,
+                actor_id="admin",
+                details=f"Batch generation ({i+1}/{count})"
+            )
+            db.add(log)
+    
+    db.commit()
     
     return {
         "success": True,
@@ -102,34 +119,34 @@ class TrialRequest(BaseModel):
 
 
 @app.post("/trial")
-async def create_trial_license(req: TrialRequest):
+async def create_trial_license(req: TrialRequest, db: Session = Depends(get_db)):
     """
     Self-service trial license generation
-    
-    Instantly generates a 30-day trial license (10,000 events).
-    No manual approval required!
-    
-    Returns: {
-        "success": true,
-        "license_key": "SW-TRIAL-XXXX-XXXX-XXXX-XXXX",
-        "expires_at": "2026-02-10T...",
-        "max_events": 10000
-    }
     """
-    import secrets
-    import string
-    from datetime import timedelta
     
     def generate_trial_key():
         chars = string.ascii_uppercase + string.digits
         parts = [''.join(secrets.choice(chars) for _ in range(4)) for _ in range(4)]
         return f"SW-TRIAL-{'-'.join(parts)}"
     
-    # Generate trial license
+    # 1. Check/Create User in PlanetScale
+    user = db.query(User).filter(User.email == req.email).first()
+    if not user:
+        user = User(
+            id=secrets.token_hex(16),
+            email=req.email,
+            name=req.name,
+            company=req.company
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    # 2. Generate license key
     license_key = generate_trial_key()
     expires_at = (datetime.utcnow() + timedelta(days=30)).isoformat()
     
-    # Save to Redis/KV
+    # 3. Save to Redis/KV (Hot Storage)
     LicenseStore.save_license(
         license_key=license_key,
         tier="trial",
@@ -138,6 +155,17 @@ async def create_trial_license(req: TrialRequest):
         customer_email=req.email,
         expires_at=expires_at
     )
+    
+    # 4. Log to MySQL (Audit Trail)
+    log = AuditLog(
+        action="license.created_trial",
+        actor_id=user.id,
+        target_id=license_key,
+        details=f"Self-service trial for {req.email}",
+        ip_address="0.0.0.0" # Placeholder, implies need for request object to get real IP
+    )
+    db.add(log)
+    db.commit()
     
     return {
         "success": True,
@@ -151,8 +179,7 @@ async def create_trial_license(req: TrialRequest):
 async def verify_license(req: VerifyRequest):
     """
     Verify if license key is valid and not expired
-    
-    Returns license details if valid, 403 if invalid/expired
+    (Reads only from Redis for speed)
     """
     # Get from Redis/KV
     license_data = LicenseStore.get_license(req.key)
@@ -185,15 +212,13 @@ async def verify_license(req: VerifyRequest):
 async def report_usage(req: ReportRequest):
     """
     Receive usage report from customer's Shadow Watch instance
-    
-    Stores event count for billing/monitoring
     """
     # Verify license exists
     license_data = LicenseStore.get_license(req.license_key)
     if not license_data:
         raise HTTPException(status_code=404, detail="License key not found")
     
-    # Store usage report
+    # Store usage report in Redis (could eventually sync specific milestones to MySQL)
     LicenseStore.report_usage(
         req.license_key,
         req.events_count,
@@ -207,8 +232,6 @@ async def report_usage(req: ReportRequest):
 async def get_stats():
     """
     Admin endpoint: Get usage statistics
-    
-    Returns total customers, licenses, and events
     """
     licenses = LicenseStore.list_all_licenses()
     
@@ -233,7 +256,6 @@ async def get_stats():
         "active_trials": len(active_trials),
         "total_events_tracked": total_events
     }
-
 
 
 if __name__ == "__main__":

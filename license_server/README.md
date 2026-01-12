@@ -1,99 +1,56 @@
 # Shadow Watch License Server
 
-Standalone FastAPI server for managing Shadow Watch license keys and usage tracking.
+A FastAPI-based license server running on Vercel.
+Architecture: **Redis (Hot)** + **CockroachDB (Cold/System of Record)**.
 
-## Local Development
+## 🚀 Setup Guide
+
+### 1. Database Setup (CockroachDB)
+
+1.  Log in to [CockroachDB Cloud](https://cockroachlabs.cloud).
+2.  Create a "Serverless" cluster (Free Forever).
+3.  Click **"Connect"**.
+4.  Select **"General Connection String"**.
+5.  Copy the connection string. It will look like this:
+    ```
+    postgresql://username:password@aws-us-east-1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full
+    ```
+
+### 2. Environment Variables
+
+Set these in **Vercel Project Settings** or `.env.local`:
 
 ```bash
-# Install dependencies (from root)
-pip install -r ../requirements.txt
+# Redis (Vercel KV or Redis Cloud)
+REDIS_URL="redis://default:password@visual-gull-38292.upstash.io:38292"
 
-# Run server
-python main.py
-
-# Server runs on http://localhost:8000
+# CockroachDB (Primary Database)
+# Note: Use 'postgresql://' prefix. If it says 'postgres://', change it to 'postgresql://' for SQLAlchemy.
+PLANETSCALE_URL="postgresql://username:password@aws-us-east-1.cockroachlabs.cloud:26257/shadowwatch?sslmode=verify-full"
 ```
+*(We reuse `PLANETSCALE_URL` variable name to avoid code changes, or you can rename it to `DATABASE_URL` in code).*
 
-## Generate Trial Keys
+### 3. Local Development
+
+1.  Install dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
+2.  Run server:
+    ```bash
+    uvicorn main:app --reload
+    ```
+3.  The database will initialize automatically on first run.
+
+## 📡 API Endpoints
+
+-   `POST /trial`: Generate 30-day trial (Users + Redis + DB Log)
+-   `POST /verify`: Verify license (Redis only - Fast)
+-   `POST /report`: Report usage stats (Redis -> DB sync pending)
+-   `GET /stats`: View platform statistics
+
+## 📦 Deployment
 
 ```bash
-# Generate 10 trial keys (30-day expiration)
-python generate_trial_keys.py
+vercel --prod
 ```
-
-## API Endpoints
-
-### GET /
-Health check endpoint
-
-### POST /verify
-Verify license key validity
-
-Request:
-```json
-{
-  "key": "SW-TRIAL-XXXX-XXXX-XXXX-XXXX"
-}
-```
-
-Response (valid):
-```json
-{
-  "valid": true,
-  "tier": "trial",
-  "max_events": 10000,
-  "customer": "Trial User 1",
-  "expires_at": "2026-02-10T..."
-}
-```
-
-### POST /report
-Report usage statistics
-
-Request:
-```json
-{
-  "license_key": "SW-TRIAL-XXXX-XXXX-XXXX-XXXX",
-  "events_count": 1523,
-  "timestamp": "2026-01-10T12:00:00Z"
-}
-```
-
-### GET /stats
-Admin statistics (total licenses, events, trials)
-
-## Deployment (Fly.io)
-
-See [DEPLOY_FLYIO.md](./DEPLOY_FLYIO.md) for complete deployment guide.
-
-**Quick start:**
-
-**Windows CMD:**
-```cmd
-deploy.bat
-```
-
-**Linux/macOS:**
-```bash
-chmod +x deploy.sh && ./deploy.sh
-```
-
-**Manual (all platforms):**
-```cmd
-flyctl auth login
-flyctl launch --name shadowwatch-license --no-deploy
-flyctl volumes create license_data --size 1
-flyctl deploy
-```
-
-**Your URL:** `https://shadowwatch-license.fly.dev`
-
-## Database
-
-SQLite database (`licenses.db`) with 2 tables:
-- `licenses` - License keys and metadata
-- `usage_reports` - Event count reports from customers
-
-## Environment Variables
-
-None required for local development. Railway deployment uses default SQLite.

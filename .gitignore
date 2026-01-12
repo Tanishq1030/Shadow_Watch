@@ -95,3 +95,8 @@ license_server/admin_endpoint_snippet.py
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Node.js (root level only - client has its own .gitignore)
+/node_modules/
+/package.json
+/package-lock.json
