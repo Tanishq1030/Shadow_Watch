@@ -188,7 +188,7 @@ async def login_user(req: LoginRequest, db: Session = Depends(get_db)):
 @app.post("/trial")
 async def create_trial_license(req: TrialRequest, db: Session = Depends(get_db)):
     """
-    Trial license generation (now expects user to be registered)
+    Trial license generation (now allows auto-creation of guest users)
     """
     
     def generate_trial_key():
@@ -196,10 +196,19 @@ async def create_trial_license(req: TrialRequest, db: Session = Depends(get_db))
         parts = [''.join(secrets.choice(chars) for _ in range(4)) for _ in range(4)]
         return f"SW-TRIAL-{'-'.join(parts)}"
     
-    # 1. Verify User exists
+    # 1. Check if user exists, else create guest
     user = db.query(User).filter(User.email == req.email).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found. Please sign up first.")
+        user = User(
+            id=secrets.token_hex(16),
+            email=req.email,
+            name=req.name,
+            company=req.company,
+            password=None  # Guest user - no password
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
 
     # 2. Generate license key
     license_key = generate_trial_key()

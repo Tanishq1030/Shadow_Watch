@@ -10,18 +10,37 @@ import { toast } from "sonner";
 
 const GetLicense = () => {
     const navigate = useNavigate();
-    const { user, isAuthenticated } = useAuth();
+    const { user } = useAuth(); // We still check if a user is logged in to pre-fill, but it's not required
     const [licenseKey, setLicenseKey] = useState("");
     const [isCopied, setIsCopied] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
 
-    useEffect(() => {
-        if (!isAuthenticated) {
-            navigate("/signin", { replace: true });
-        }
-    }, [isAuthenticated, navigate]);
+    // Guest form state
+    const [formData, setFormData] = useState({
+        name: user?.name || "",
+        email: user?.email || "",
+        organization: user?.organization || "",
+    });
 
-    const generateLicense = async () => {
+    // Update form if user logs in/out
+    useEffect(() => {
+        if (user) {
+            setFormData({
+                name: user.name,
+                email: user.email,
+                organization: user.organization,
+            });
+        }
+    }, [user]);
+
+    const generateLicense = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+
+        if (!formData.name || !formData.email || !formData.organization) {
+            toast.error("Please fill in all fields.");
+            return;
+        }
+
         setIsGenerating(true);
 
         try {
@@ -29,10 +48,9 @@ const GetLicense = () => {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    name: user?.name,
-                    email: user?.email,
-                    company: user?.organization || "Individual",
-                    use_case: "Dashboard Signup"
+                    name: formData.name,
+                    email: formData.email,
+                    company: formData.organization,
                 }),
             });
 
@@ -66,8 +84,6 @@ const GetLicense = () => {
         setTimeout(() => setIsCopied(false), 2000);
     };
 
-    if (!user) return null;
-
     return (
         <div className="min-h-screen pt-24 pb-12 flex items-center justify-center px-4 bg-background overflow-hidden relative">
             <div className="absolute top-[-20%] left-[20%] w-[600px] h-[600px] rounded-full bg-emerald-500/5 blur-[120px] pointer-events-none" />
@@ -80,40 +96,55 @@ const GetLicense = () => {
                         </div>
                         <h1 className="text-3xl font-bold mb-2">Get Your License Key</h1>
                         <p className="text-muted-foreground">
-                            Generate a 30-day trial key for {user.organization || "your organization"}
+                            {licenseKey ? "Your 30-day trial key is ready!" : "Fill in your details to generate a 30-day trial key"}
                         </p>
                     </div>
 
-                    <div className="grid gap-6 md:grid-cols-2 mb-8">
-                        <div className="space-y-2">
-                            <Label>Full Name</Label>
-                            <div className="px-3 py-2 rounded-md bg-muted/50 border border-border text-sm">
-                                {user.name}
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Organization</Label>
-                            <div className="px-3 py-2 rounded-md bg-muted/50 border border-border text-sm">
-                                {user.organization || "N/A"}
-                            </div>
-                        </div>
-                        <div className="space-y-2 md:col-span-2">
-                            <Label>Email Address</Label>
-                            <div className="px-3 py-2 rounded-md bg-muted/50 border border-border text-sm">
-                                {user.email}
-                            </div>
-                        </div>
-                    </div>
-
                     {!licenseKey ? (
-                        <Button
-                            size="lg"
-                            className="w-full h-12 text-base font-semibold"
-                            onClick={generateLicense}
-                            disabled={isGenerating}
-                        >
-                            {isGenerating ? "Generating Key..." : "Generate 30-Day Trial Key"}
-                        </Button>
+                        <form onSubmit={generateLicense} className="space-y-6 mb-8">
+                            <div className="grid gap-6 md:grid-cols-2">
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">Full Name</Label>
+                                    <Input
+                                        id="name"
+                                        placeholder="Tanishq Dasari"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="organization">Organization</Label>
+                                    <Input
+                                        id="organization"
+                                        placeholder="Google"
+                                        value={formData.organization}
+                                        onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <Label htmlFor="email">Email Address</Label>
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        placeholder="artisanecho@gmail.com"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <Button
+                                type="submit"
+                                size="lg"
+                                className="w-full h-12 text-base font-semibold"
+                                disabled={isGenerating}
+                            >
+                                {isGenerating ? "Generating Key..." : "Generate 30-Day Trial Key"}
+                            </Button>
+                        </form>
                     ) : (
                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <Label className="text-base text-primary font-medium">Your Trial License Key</Label>

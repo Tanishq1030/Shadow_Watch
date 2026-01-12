@@ -67,44 +67,12 @@ const Navbar = () => {
           <ThemeToggle />
           <GitHubStars />
 
-          {isAuthenticated ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2 px-2 hover:bg-muted/50">
-                  <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary">
-                    {user?.name?.charAt(0) || "U"}
-                  </div>
-                  <span className="text-sm font-medium hidden sm:inline-block max-w-[100px] truncate">
-                    {user?.name}
-                  </span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/get-license")}>
-                  License Key
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-500 focus:text-red-500">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <>
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/signin">Sign In</Link>
-              </Button>
-              <Button variant="default" size="sm" className="gap-2" asChild>
-                <Link to="/signup">
-                  Get Started
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </>
-          )}
+          <Button variant="default" size="sm" className="gap-2" asChild>
+            <Link to="/get-license">
+              Get Started
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
         </div>
       </div>
     </nav>

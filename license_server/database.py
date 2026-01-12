@@ -55,7 +55,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     name = Column(String(255), nullable=False)
     company = Column(String(255))
-    password = Column(String(255), nullable=False) # Plaintext for now as requested, though hashing is better
+    password = Column(String(255), nullable=True) # Optional for guest users
     
     # Billing info
     stripe_customer_id = Column(String(255), nullable=True)
