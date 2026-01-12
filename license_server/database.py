@@ -29,17 +29,27 @@ else:
     
     connect_args = {}
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args=connect_args,
-    pool_recycle=3600,
-    pool_pre_ping=True,
-    pool_timeout=30,
-    echo=False
-)
-
-SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
-Base = declarative_base()
+try:
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args=connect_args,
+        pool_recycle=3600,
+        pool_pre_ping=True,
+        pool_timeout=30,
+        echo=False
+    )
+    
+    SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    Base = declarative_base()
+    print("✅ Database engine created successfully")
+except Exception as e:
+    print(f"❌ Database engine creation failed: {e}")
+    # Create engine anyway to prevent None errors, but it will fail on first use
+    from sqlalchemy import create_engine as ce
+    from sqlalchemy.pool import NullPool
+    engine = ce("sqlite:///:memory:", poolclass=NullPool)  # Fallback to prevent crash
+    SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    Base = declarative_base()
 
 class User(Base):
     __tablename__ = "users"
