@@ -16,11 +16,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Shadow Watch License Server")
 
-# Add CORS middleware to allow requests from the frontend
+# Refined CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=False, # Must be False when allow_origins is ["*"]
+    allow_origins=[
+        "https://shadow-watch-client.vercel.app",
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -57,7 +61,7 @@ async def startup():
 
 @app.on_event("startup")
 async def startup_event():
-    print("🚀 Shadow Watch License Server v1.0.5 Starting...")
+    print("🚀 Shadow Watch License Server v1.0.6 Starting...")
     print(f"📡 DB URL Present: {bool(os.getenv('DATABASE_URL'))}")
 
 @app.get("/")
@@ -66,7 +70,7 @@ async def root():
     return {
         "service": "Shadow Watch License Server",
         "status": "operational",
-        "version": "1.0.5",
+        "version": "1.0.6",
         "storage": "Redis + MySQL"
     }
 
