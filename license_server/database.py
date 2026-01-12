@@ -5,10 +5,11 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 
 # Database connection string (from Supabase environment variable)
-DATABASE_URL = os.getenv("POSTGRES_URL")
+# Use pooler URL for better performance with serverless
+DATABASE_URL = os.getenv("POSTGRES_POOLER_URL") or os.getenv("POSTGRES_URL") or os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    raise ValueError("POSTGRES_URL environment variable is not set")
+    raise ValueError("No Supabase database URL found (tried POSTGRES_POOLER_URL, POSTGRES_URL, DATABASE_URL)")
 
 # Clean up the URL
 DATABASE_URL = DATABASE_URL.strip().strip('"').strip("'")
