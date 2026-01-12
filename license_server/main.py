@@ -196,28 +196,36 @@ async def reset_system(req: ResetRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Unauthorized")
     
     try:
-        # 1. Clear database tables using raw SQL for speed and reliability
         from sqlalchemy import text
-        
-        # Delete trial logs
+        # Purge trial logs
         db.execute(text("DELETE FROM audit_logs WHERE action LIKE 'license.created_trial%'"))
-        
-        # Delete guest users (nullable password)
+        # Purge guest users
         db.execute(text("DELETE FROM users WHERE password IS NULL"))
-        
-        # 3. Clear Redis/KV Store
-        LicenseStore.clear_all()
-        
         db.commit()
         
         return {
             "success": True,
-            "message": "System reset successful. All trial keys and guest data purged.",
-            "stats_reset": True
+            "message": "Database reset successful. Logs and guest users purged."
         }
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Reset failed: {str(e)}")
+        # Log the full error to help debug connection issues
+        print(f"❌ DB Reset Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"DB Reset failed: {str(e)}")
+
+@app.post("/admin/reset-redis")
+async def reset_redis(req: ResetRequest):
+    """
+    Purge all hot storage (Redis/KV). This resets the dashboard stats.
+    """
+    if req.admin_secret != "shadow-watch-reset-2026":
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    success = LicenseStore.clear_all()
+    if success:
+        return {"success": True, "message": "Redis cache cleared. Stats reset to 0."}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to clear Redis.")
 
 
 @app.post("/trial")
