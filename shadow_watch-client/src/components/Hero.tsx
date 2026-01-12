@@ -1,8 +1,21 @@
 import { ArrowRight, Copy } from "lucide-react";
 import { Button } from "./ui/button";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 
 const Hero = () => {
+  // Fetch server version dynamically
+  const { data: serverInfo } = useQuery({
+    queryKey: ['server-version'],
+    queryFn: async () => {
+      const res = await fetch('https://shadow-watch-three.vercel.app/');
+      return res.json();
+    },
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+  });
+
+  const version = serverInfo?.version || '1.0.4'; // Fallback
+
   return (
     <section className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
       {/* Subtle gradient background */}
@@ -26,7 +39,9 @@ const Hero = () => {
           className="flex flex-col items-center gap-4 mb-8"
         >
           <div className="inline-flex items-center gap-2 rounded-full bg-[#1A2E22] border border-[#2D4A38] px-6 py-1">
-            <span className="text-xs font-medium text-[#10B981] tracking-wide">PRODUCTION READY V1.0.4</span>
+            <span className="text-xs font-medium text-[#10B981] tracking-wide">
+              PRODUCTION READY V{version}
+            </span>
           </div>
           <span className="text-[10px] tracking-[0.2em] text-muted-foreground font-bold uppercase">
             Supported in: Python • FastAPI • Django • Flask

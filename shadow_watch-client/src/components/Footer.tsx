@@ -1,6 +1,18 @@
-
+import { useQuery } from "@tanstack/react-query";
 
 const Footer = () => {
+  // Fetch server version dynamically
+  const { data: serverInfo } = useQuery({
+    queryKey: ['server-version'],
+    queryFn: async () => {
+      const res = await fetch('https://shadow-watch-three.vercel.app/');
+      return res.json();
+    },
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+  });
+
+  const version = serverInfo?.version || 'v1.0.4'; // Fallback
+
   return (
     <footer className="border-t border-border py-8 px-4">
       <div className="container mx-auto">
@@ -31,7 +43,7 @@ const Footer = () => {
             <span className="font-medium text-foreground">Tanishq</span>
             . All rights reserved. {" "}
             <span className="ml-2 px-1.5 py-0.5 rounded-full bg-muted border border-border text-[10px] font-mono font-bold">
-              v1.0.4
+              v{version}
             </span>
           </p>
         </div>
