@@ -196,11 +196,14 @@ async def reset_system(req: ResetRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Unauthorized")
     
     try:
-        # 1. Delete all trial-related audit logs
-        db.query(AuditLog).filter(AuditLog.action.like("license.created_trial%")).delete(synchronize_session=False)
+        # 1. Clear database tables using raw SQL for speed and reliability
+        from sqlalchemy import text
         
-        # 2. Delete guest users (those with no password)
-        db.query(User).filter(User.password == None).delete(synchronize_session=False)
+        # Delete trial logs
+        db.execute(text("DELETE FROM audit_logs WHERE action LIKE 'license.created_trial%'"))
+        
+        # Delete guest users (nullable password)
+        db.execute(text("DELETE FROM users WHERE password IS NULL"))
         
         # 3. Clear Redis/KV Store
         LicenseStore.clear_all()
