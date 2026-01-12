@@ -5,7 +5,7 @@ const Footer = () => {
   const { data: serverInfo } = useQuery({
     queryKey: ['server-version'],
     queryFn: async () => {
-      const res = await fetch('https://shadow-watch-server.onrender.com/');
+      const res = await fetch('https://shadow-watch-two.vercel.app/');
       return res.json();
     },
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
