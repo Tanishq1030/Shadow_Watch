@@ -14,11 +14,11 @@ if not DATABASE_URL:
 else:
     DATABASE_URL = DATABASE_URL.strip().strip('"').strip("'")
     
-    # Use CockroachDB dialect for better compatibility
+    # Keep as PostgreSQL (CockroachDB is PostgreSQL-compatible)
     if DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "cockroachdb+psycopg2://", 1)
-    elif DATABASE_URL.startswith("postgresql://"):
-        DATABASE_URL = DATABASE_URL.replace("postgresql://", "cockroachdb+psycopg2://", 1)
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    elif DATABASE_URL.startswith("cockroachdb+psycopg2://"):
+        DATABASE_URL = DATABASE_URL.replace("cockroachdb+psycopg2://", "postgresql://", 1)
     
     # Ensure sslmode=require for CockroachDB
     if "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL:
@@ -36,8 +36,11 @@ try:
         pool_recycle=3600,
         pool_pre_ping=True,
         pool_timeout=30,
-        echo=False
+        echo=False,
+        # Use AUTOCOMMIT isolation to bypass version checks
+        isolation_level="AUTOCOMMIT"
     )
+    
     SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     Base = declarative_base()
 except Exception as e:
