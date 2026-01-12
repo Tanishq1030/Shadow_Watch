@@ -47,18 +47,6 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-class License(Base):
-    """License keys stored in database (no Redis needed)"""
-    __tablename__ = "licenses"
-    key = Column(String(64), primary_key=True)
-    owner_id = Column(String(64), nullable=False)
-    owner_email = Column(String(255), nullable=False)
-    tier = Column(String(50), default="trial")  # trial, pro, enterprise
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    expires_at = Column(DateTime, nullable=False)
-    metadata = Column(Text, nullable=True)  # JSON string for extra data
-
 class Payment(Base):
     __tablename__ = "payments"
     id = Column(Integer, primary_key=True, autoincrement=True)

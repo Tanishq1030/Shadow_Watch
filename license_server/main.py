@@ -3,14 +3,14 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 import secrets
 import os
-import json
 import string
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 # Core Modules
-from database import SessionLocal, init_db, User, License, AuditLog
+from kv_store import LicenseStore
+from database import SessionLocal, init_db, User, AuditLog
 
 app = FastAPI(title="Shadow Watch License Server")
 
@@ -19,6 +19,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://shadow-watch-client.onrender.com",
+        "https://shadow-watch-client.vercel.app",
         "http://localhost:5173",
         "http://localhost:3000",
     ],
@@ -58,18 +59,29 @@ async def root():
     return {
         "service": "Shadow Watch License Server",
         "status": "operational",
-        "version": "2.0.0",
-        "storage": "CockroachDB (PostgreSQL)"
+        "version": "2.0.1",
+        "storage": "Redis + CockroachDB"
     }
 
 @app.get("/health")
 async def health_check(db: Session = Depends(get_db)):
-    health = {"status": "operational", "database": "connected"}
+    health = {"status": "operational", "database": "connected", "redis": "unknown"}
+    
+    # Check database
     try:
         db.execute(text("SELECT 1"))
     except Exception as e:
         health["database"] = f"error: {str(e)}"
         health["status"] = "degraded"
+    
+    # Check Redis
+    try:
+        if LicenseStore._use_redis():
+            health["redis"] = "connected"
+        else:
+            health["redis"] = "using-memory-fallback"
+    except Exception as e:
+        health["redis"] = f"error: {str(e)}"
     
     return health
 
@@ -103,18 +115,19 @@ async def create_trial_license(req: TrialRequest, db: Session = Depends(get_db))
     # 2. Generate license key
     key = f"SW-TRIAL-{''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(16))}"
     
-    # 3. Store in database
+    # 3. Store in Redis
     expires_at = datetime.utcnow() + timedelta(days=30)
-    license = License(
-        key=key,
-        owner_id=user.id,
-        owner_email=user.email,
-        tier="trial",
-        is_active=True,
-        expires_at=expires_at,
-        metadata=json.dumps({"org": req.company})
-    )
-    db.add(license)
+    license_data = {
+        "key": key,
+        "owner_id": user.id,
+        "owner_email": user.email,
+        "tier": "trial",
+        "is_active": True,
+        "created_at": datetime.utcnow().isoformat(),
+        "expires_at": expires_at.isoformat(),
+    }
+    
+    LicenseStore.save_license(key, license_data)
 
     # 4. Audit Log
     db.add(AuditLog(
@@ -134,44 +147,30 @@ async def create_trial_license(req: TrialRequest, db: Session = Depends(get_db))
     }
 
 @app.get("/verify/{license_key}")
-async def verify_license(license_key: str, db: Session = Depends(get_db)):
+async def verify_license(license_key: str):
     """Verify if a license key is valid"""
-    license = db.query(License).filter(License.key == license_key).first()
+    license = LicenseStore.get_license(license_key)
     
     if not license:
         return {"valid": False, "reason": "not_found"}
     
-    if datetime.utcnow() > license.expires_at:
+    expires_at = datetime.fromisoformat(license['expires_at'])
+    if datetime.utcnow() > expires_at:
         return {"valid": False, "reason": "expired"}
     
-    if not license.is_active:
+    if not license.get('is_active', True):
         return {"valid": False, "reason": "revoked"}
     
     return {
         "valid": True,
-        "tier": license.tier,
-        "expires_at": license.expires_at.isoformat()
+        "tier": license.get("tier", "trial"),
+        "expires_at": license['expires_at']
     }
 
 @app.get("/stats")
-async def get_stats(db: Session = Depends(get_db)):
+async def get_stats():
     """Get license statistics"""
-    active_licenses = db.query(License).filter(
-        License.is_active == True,
-        License.expires_at > datetime.utcnow()
-    ).count()
-    
-    active_trials = db.query(License).filter(
-        License.is_active == True,
-        License.tier == "trial",
-        License.expires_at > datetime.utcnow()
-    ).count()
-    
-    return {
-        "active_licenses": active_licenses,
-        "active_trials": active_trials,
-        "total_events": 0  # Can add usage tracking later
-    }
+    return LicenseStore.get_all_stats()
 
 @app.post("/admin/reset-system")
 async def reset_system(req: ResetRequest, db: Session = Depends(get_db)):
@@ -180,11 +179,14 @@ async def reset_system(req: ResetRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Unauthorized")
     
     try:
-        # Delete all licenses, trial users, and audit logs
-        db.query(License).delete()
+        # Clear database
         db.query(AuditLog).delete()
         db.query(User).filter(User.password == None).delete()
         db.commit()
+        
+        # Clear Redis
+        LicenseStore.clear_all()
+        
         return {"success": True, "message": "Full system reset successful."}
     except Exception as e:
         db.rollback()
