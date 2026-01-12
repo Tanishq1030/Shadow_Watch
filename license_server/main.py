@@ -61,7 +61,7 @@ async def root():
     return {
         "service": "Shadow Watch License Server",
         "status": "operational",
-        "version": "1.0.0",
+        "version": "1.0.4",
         "storage": "Redis + MySQL"
     }
 
