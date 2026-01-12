@@ -18,11 +18,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const API_BASE_URL = "https://shadow-watch-three.vercel.app";
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
 
     useEffect(() => {
-        // Check session on mount
         const storedUser = localStorage.getItem("shadow_watch_user");
         if (storedUser) {
             setUser(JSON.parse(storedUser));
@@ -30,89 +31,61 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     const login = async (email: string, password?: string) => {
-        // Simulate API network delay
-        await new Promise((resolve) => setTimeout(resolve, 800));
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
 
-        const usersStr = localStorage.getItem("shadow_watch_users_db");
-        const users = usersStr ? JSON.parse(usersStr) : [];
+            const data = await response.json();
 
-        const foundUser = users.find((u: any) => u.email === email);
+            if (!response.ok) {
+                toast.error(data.detail || "Login failed");
+                throw new Error(data.detail || "Login failed");
+            }
 
-        if (!foundUser) {
-            toast.error("Account not found. Please sign up.");
-            throw new Error("User not found");
+            setUser(data.user);
+            localStorage.setItem("shadow_watch_user", JSON.stringify(data.user));
+            toast.success("Welcome back!");
+        } catch (error: any) {
+            if (!(error instanceof Error)) throw error;
+            throw error;
         }
-
-        if (password && foundUser.password !== password) {
-            toast.error("Invalid credentials.");
-            throw new Error("Invalid password");
-        }
-
-        // Success
-        const activeUser = {
-            name: foundUser.name,
-            email: foundUser.email,
-            organization: foundUser.organization
-        };
-
-        setUser(activeUser);
-        localStorage.setItem("shadow_watch_user", JSON.stringify(activeUser));
-        toast.success("Welcome back!");
     };
 
     const register = async (name: string, email: string, organization: string, password?: string) => {
-        await new Promise((resolve) => setTimeout(resolve, 800));
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/register`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, email, organization, password }),
+            });
 
-        const usersStr = localStorage.getItem("shadow_watch_users_db");
-        const users = usersStr ? JSON.parse(usersStr) : [];
+            const data = await response.json();
 
-        if (users.find((u: any) => u.email === email)) {
-            toast.error("Email already exists. Please sign in.");
-            throw new Error("Email exists");
+            if (!response.ok) {
+                toast.error(data.detail || "Registration failed");
+                throw new Error(data.detail || "Registration failed");
+            }
+
+            setUser(data.user);
+            localStorage.setItem("shadow_watch_user", JSON.stringify(data.user));
+            toast.success("Account created successfully!");
+        } catch (error: any) {
+            if (!(error instanceof Error)) throw error;
+            throw error;
         }
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            toast.error("Please enter a valid email address.");
-            throw new Error("Invalid email");
-        }
-
-        // Stricter Password Validation
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
-        if (password && !passwordRegex.test(password)) {
-            toast.error("Password must be at least 8 chars, with 1 uppercase, 1 number, and 1 special char.");
-            throw new Error("Weak password");
-        }
-
-        const newUser = { name, email, organization, password }; // Storing password in plaintext for MOCK ONLY
-        users.push(newUser);
-        localStorage.setItem("shadow_watch_users_db", JSON.stringify(users));
-
-        const activeUser = { name, email, organization };
-        setUser(activeUser);
-        localStorage.setItem("shadow_watch_user", JSON.stringify(activeUser));
-        toast.success("Account created successfully!");
-    };
-
-    const socialLogin = async (provider: "google" | "microsoft" | "x") => {
-        await new Promise((resolve) => setTimeout(resolve, 800));
-
-        // Simulate social login success
-        const mockUser = {
-            name: "Demo User",
-            email: `user@${provider}.com`,
-            organization: `${provider.charAt(0).toUpperCase() + provider.slice(1)} Login`,
-        };
-
-        setUser(mockUser);
-        localStorage.setItem("shadow_watch_user", JSON.stringify(mockUser));
-        toast.success(`Signed in with ${provider.charAt(0).toUpperCase() + provider.slice(1)}`);
     };
 
     const logout = () => {
         setUser(null);
         localStorage.removeItem("shadow_watch_user");
         toast.success("Logged out successfully");
+    };
+
+    const socialLogin = async () => {
+        toast.info("Social login is currently disabled. Please use the form.");
     };
 
     return (

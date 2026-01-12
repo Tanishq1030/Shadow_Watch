@@ -115,13 +115,66 @@ class TrialRequest(BaseModel):
     name: str
     email: EmailStr
     company: str = "Individual"
-    use_case: str = ""
 
+class RegisterRequest(BaseModel):
+    name: str
+    email: EmailStr
+    organization: str
+    password: str
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+@app.post("/auth/register")
+async def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
+    """Register a new user in CockroachDB"""
+    # Check if user exists
+    existing_user = db.query(User).filter(User.email == req.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="User already exists")
+    
+    # Create user
+    user = User(
+        id=secrets.token_hex(16),
+        email=req.email,
+        name=req.name,
+        company=req.organization,
+        password=req.password # NOTE: Plaintext for now. In production, use bcrypt/argon2 hashing!
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    return {
+        "success": True,
+        "user": {
+            "name": user.name,
+            "email": user.email,
+            "organization": user.company
+        }
+    }
+
+@app.post("/auth/login")
+async def login_user(req: LoginRequest, db: Session = Depends(get_db)):
+    """Authenticate user against CockroachDB"""
+    user = db.query(User).filter(User.email == req.email).first()
+    if not user or user.password != req.password:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    return {
+        "success": True,
+        "user": {
+            "name": user.name,
+            "email": user.email,
+            "organization": user.company
+        }
+    }
 
 @app.post("/trial")
 async def create_trial_license(req: TrialRequest, db: Session = Depends(get_db)):
     """
-    Self-service trial license generation
+    Trial license generation (now expects user to be registered)
     """
     
     def generate_trial_key():
@@ -129,18 +182,10 @@ async def create_trial_license(req: TrialRequest, db: Session = Depends(get_db))
         parts = [''.join(secrets.choice(chars) for _ in range(4)) for _ in range(4)]
         return f"SW-TRIAL-{'-'.join(parts)}"
     
-    # 1. Check/Create User in PlanetScale
+    # 1. Verify User exists
     user = db.query(User).filter(User.email == req.email).first()
     if not user:
-        user = User(
-            id=secrets.token_hex(16),
-            email=req.email,
-            name=req.name,
-            company=req.company
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+        raise HTTPException(status_code=404, detail="User not found. Please sign up first.")
 
     # 2. Generate license key
     license_key = generate_trial_key()

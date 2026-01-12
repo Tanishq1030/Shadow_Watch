@@ -6,14 +6,21 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 
 # Database connection string (from Vercel env vars)
-# CockroachDB: postgresql://user:pass@host:26257/db?sslmode=verify-full
-# PlanetScale: mysql+pymysql://user:pass@host/db?ssl_ca=...
 DATABASE_URL = os.getenv("PLANETSCALE_URL") or os.getenv("DATABASE_URL")
 
 # Fallback for local testing if env var not set (SQLite)
 if not DATABASE_URL:
     print("⚠️ DATABASE_URL not set. Using local SQLite for testing.")
     DATABASE_URL = "sqlite:///./local_test.db"
+else:
+    # Cleanup URL (sometimes Vercel env vars have extra quotes or whitespace)
+    DATABASE_URL = DATABASE_URL.strip().strip('"').strip("'")
+    if DATABASE_URL.startswith("postgres://"):
+        # SQLAlchemy 1.4+ requires postgresql:// instead of postgres://
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    
+    # Debug (partial mask for security)
+    print(f"📡 Database connection attempt: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else 'No user/pass'}")
     
 connect_args = {}
 
@@ -48,6 +55,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     name = Column(String(255), nullable=False)
     company = Column(String(255))
+    password = Column(String(255), nullable=False) # Plaintext for now as requested, though hashing is better
     
     # Billing info
     stripe_customer_id = Column(String(255), nullable=True)
