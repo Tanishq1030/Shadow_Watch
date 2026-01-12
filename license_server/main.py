@@ -12,7 +12,21 @@ from kv_store import LicenseStore
 # Import PlanetScale DB
 from database import SessionLocal, init_db, User, AuditLog, Payment
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Shadow Watch License Server")
+
+# Add CORS middleware to allow requests from the frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://shadow-watch-client.vercel.app",
+        "http://localhost:5173",  # Local development
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Dependency
 def get_db():
