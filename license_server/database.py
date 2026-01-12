@@ -17,16 +17,6 @@ DATABASE_URL = DATABASE_URL.strip().strip('"').strip("'")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Ensure sslmode=require for Supabase
-if "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL:
-    if "?" not in DATABASE_URL:
-        DATABASE_URL += "?sslmode=require"
-    elif "sslmode" not in DATABASE_URL:
-        DATABASE_URL += "&sslmode=require"
-
-connect_args = {}
-DATABASE_URL += "&sslmode=require"
-
 connect_args = {}
 
 try:
