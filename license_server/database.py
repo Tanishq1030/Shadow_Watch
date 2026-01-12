@@ -13,18 +13,14 @@ if not DATABASE_URL:
     print("⚠️ DATABASE_URL not set. Using local SQLite for testing.")
     DATABASE_URL = "sqlite:///./local_test.db"
 else:
-    # Cleanup URL
+    # Use direct URL from environment
     DATABASE_URL = DATABASE_URL.strip().strip('"').strip("'")
     
-    # SQLAlchemy 1.4+ requires postgresql:// instead of postgres://
+    # Simple swap for SQLAlchemy 1.4+
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     
-    # Safety check: If for some reason it became postgresqll:// due to double replacement
-    if DATABASE_URL.startswith("postgresqll://"):
-        DATABASE_URL = DATABASE_URL.replace("postgresqll://", "postgresql://", 1)
-    
-    print(f"📡 Database connection initialized")
+    print("📡 Database engine initialized")
     
 connect_args = {}
 
