@@ -3,5 +3,5 @@ uvicorn[standard]
 pydantic
 redis
 sqlalchemy
-psycopg2
+psycopg2-binary
 email-validator
