@@ -1,41 +1,29 @@
 import os
-import re
 from sqlalchemy import create_engine, Column, String, Integer, DateTime, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
-from urllib.parse import urlparse, parse_qs, urlencode
 
-# Database connection string (from Vercel env vars)
-RAW_URL = os.getenv("PLANETSCALE_URL") or os.getenv("DATABASE_URL")
+# Database connection string (from environment)
+DATABASE_URL = os.getenv("PLANETSCALE_URL") or os.getenv("DATABASE_URL")
 
-def get_connection_url(url: str) -> str:
-    if not url:
-        return "sqlite:///./local_test.db"
+# Fallback for local testing
+if not DATABASE_URL:
+    DATABASE_URL = "sqlite:///./local_test.db"
+    connect_args = {}
+else:
+    DATABASE_URL = DATABASE_URL.strip().strip('"').strip("'")
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     
-    url = url.strip().strip('"').strip("'")
+    # Ensure sslmode=require for CockroachDB
+    if "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL:
+        if "?" not in DATABASE_URL:
+            DATABASE_URL += "?sslmode=require"
+        elif "sslmode" not in DATABASE_URL:
+            DATABASE_URL += "&sslmode=require"
     
-    # Handle CockroachDB / Postgres
-    if url.startswith("postgres"):
-        # Ensure postgresql://
-        if not url.startswith("postgresql://"):
-            url = url.replace("postgres://", "postgresql://", 1)
-        
-        # Parse and ensure sslmode
-        parsed = urlparse(url)
-        params = parse_qs(parsed.query)
-        params['sslmode'] = ['verify-full']
-        
-        new_query = urlencode(params, doseq=True)
-        url = parsed._replace(query=new_query).geturl()
-        
-    return url
-
-DATABASE_URL = get_connection_url(RAW_URL)
-
-connect_args = {}
-if "mysql" in DATABASE_URL:
-    connect_args = {"ssl": {"ssl_ca": "/etc/ssl/cert.pem"}}
+    connect_args = {}
 
 engine = create_engine(
     DATABASE_URL,
@@ -58,6 +46,18 @@ class User(Base):
     subscription_status = Column(String(50), default="free")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class License(Base):
+    """License keys stored in database (no Redis needed)"""
+    __tablename__ = "licenses"
+    key = Column(String(64), primary_key=True)
+    owner_id = Column(String(64), nullable=False)
+    owner_email = Column(String(255), nullable=False)
+    tier = Column(String(50), default="trial")  # trial, pro, enterprise
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+    metadata = Column(Text, nullable=True)  # JSON string for extra data
 
 class Payment(Base):
     __tablename__ = "payments"
