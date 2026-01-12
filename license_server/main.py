@@ -19,10 +19,7 @@ app = FastAPI(title="Shadow Watch License Server")
 # Add CORS middleware to allow requests from the frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://shadow-watch-client.vercel.app",
-        "http://localhost:5173",  # Local development
-    ],
+    allow_origins=["*"], # Allowing all for now to solve persistent Vercel domain mismatches
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -198,6 +195,19 @@ async def create_trial_license(req: TrialRequest, db: Session = Depends(get_db))
     
     # 1. Check if user exists, else create guest
     user = db.query(User).filter(User.email == req.email).first()
+    
+    # Check if this user already has a trial license
+    if user:
+        existing_trial = db.query(AuditLog).filter(
+            AuditLog.actor_id == user.id,
+            AuditLog.action == "license.created_trial"
+        ).first()
+        if existing_trial:
+            raise HTTPException(
+                status_code=400, 
+                detail="A trial license has already been generated for this email."
+            )
+
     if not user:
         user = User(
             id=secrets.token_hex(16),
