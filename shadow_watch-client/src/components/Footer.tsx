@@ -26,15 +26,17 @@ const Footer = () => {
             </a>
             {" "}to share feedback!
           </p>
-          <p>Released under the MIT License.</p>
           <p>
             Copyright © 2026-PRESENT{" "}
             <span className="font-medium text-foreground">Tanishq</span>
-            . All rights reserved.
+            . All rights reserved. {" "}
+            <span className="ml-2 px-1.5 py-0.5 rounded-full bg-muted border border-border text-[10px] font-mono font-bold">
+              v1.0.4
+            </span>
           </p>
         </div>
       </div>
-    </footer>
+    </footer >
   );
 };
 

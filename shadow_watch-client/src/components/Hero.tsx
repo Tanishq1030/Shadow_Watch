@@ -26,8 +26,7 @@ const Hero = () => {
           className="flex flex-col items-center gap-4 mb-8"
         >
           <div className="inline-flex items-center gap-2 rounded-full bg-[#1A2E22] border border-[#2D4A38] px-6 py-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#10B981] animate-pulse" />
-            <span className="text-xs font-medium text-[#10B981] tracking-wide">PRODUCTION READY V1.0.0</span>
+            <span className="text-xs font-medium text-[#10B981] tracking-wide">PRODUCTION READY V1.0.4</span>
           </div>
           <span className="text-[10px] tracking-[0.2em] text-muted-foreground font-bold uppercase">
             Supported in: Python • FastAPI • Django • Flask
