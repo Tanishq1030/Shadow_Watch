@@ -137,6 +137,9 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
+class ResetRequest(BaseModel):
+    admin_secret: str
+
 @app.post("/auth/register")
 async def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
     """Register a new user in CockroachDB"""
@@ -181,6 +184,38 @@ async def login_user(req: LoginRequest, db: Session = Depends(get_db)):
             "organization": user.company
         }
     }
+
+@app.post("/admin/reset-system")
+async def reset_system(req: ResetRequest, db: Session = Depends(get_db)):
+    """
+    FACTORY RESET: Purge all trial keys, logs, and guest users.
+    Use with CAUTION.
+    """
+    # Simple protection
+    if req.admin_secret != "shadow-watch-reset-2026":
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    try:
+        # 1. Delete all trial-related audit logs
+        db.query(AuditLog).filter(AuditLog.action.like("license.created_trial%")).delete(synchronize_session=False)
+        
+        # 2. Delete guest users (those with no password)
+        db.query(User).filter(User.password == None).delete(synchronize_session=False)
+        
+        # 3. Clear Redis/KV Store
+        LicenseStore.clear_all()
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "System reset successful. All trial keys and guest data purged.",
+            "stats_reset": True
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Reset failed: {str(e)}")
+
 
 @app.post("/trial")
 async def create_trial_license(req: TrialRequest, db: Session = Depends(get_db)):

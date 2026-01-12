@@ -226,3 +226,19 @@ class LicenseStore:
                 
         except:
             return 0
+
+    @staticmethod
+    def clear_all() -> bool:
+        """Purge all data from storage (Factory Reset)"""
+        try:
+            if LicenseStore._use_redis():
+                redis_client.flushdb()
+                print("♻️ Redis store flushed")
+            
+            # Always clear memory fallback too
+            LicenseStore._memory_store.clear()
+            LicenseStore._memory_usage.clear()
+            return True
+        except Exception as e:
+            print(f"Error flushing store: {e}")
+            return False
