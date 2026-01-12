@@ -36,6 +36,12 @@ const GetLicense = () => {
                 }),
             });
 
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`Server Error (${response.status}):`, errorText);
+                throw new Error(`Server returned ${response.status}`);
+            }
+
             const data = await response.json();
 
             if (data.success) {
@@ -45,9 +51,9 @@ const GetLicense = () => {
                 toast.error("Failed to generate license. Please try again.");
                 console.error("License generation failed:", data);
             }
-        } catch (error) {
-            console.error("Error generating license:", error);
-            toast.error("Network error. Please try again later.");
+        } catch (error: any) {
+            console.error("Fetch error details:", error);
+            toast.error(error.message === "Failed to fetch" ? "Network error: Connection refused or timeout." : `Server error: ${error.message}`);
         } finally {
             setIsGenerating(false);
         }
