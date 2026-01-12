@@ -32,14 +32,20 @@ elif "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL:
     # Usually empty is fine if the URL has ?sslmode=verify-full
     pass
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args=connect_args,
-    pool_recycle=3600,
-    pool_pre_ping=True
-)
+def get_engine():
+    """Lazily create engine to prevent import-time crashes"""
+    return create_engine(
+        DATABASE_URL,
+        connect_args=connect_args,
+        pool_recycle=3600,
+        pool_pre_ping=True
+    )
 
-SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+def SessionLocal():
+    """Factory for database sessions"""
+    engine = get_engine()
+    return sessionmaker(bind=engine, autocommit=False, autoflush=False)()
+
 Base = declarative_base()
 
 class User(Base):
@@ -101,4 +107,5 @@ class AuditLog(Base):
 
 def init_db():
     """Create tables if they don't exist"""
+    engine = get_engine()
     Base.metadata.create_all(bind=engine)
