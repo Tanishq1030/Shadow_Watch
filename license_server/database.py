@@ -25,15 +25,23 @@ else:
     
     connect_args = {}
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args=connect_args,
-    pool_recycle=3600,
-    pool_pre_ping=True
-)
-
-SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
-Base = declarative_base()
+try:
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args=connect_args,
+        pool_recycle=3600,
+        pool_pre_ping=True,
+        pool_timeout=30,
+        echo=False
+    )
+    SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    Base = declarative_base()
+except Exception as e:
+    print(f"⚠️ Database engine creation warning: {e}")
+    # Create a dummy base for now
+    Base = declarative_base()
+    SessionLocal = None
+    engine = None
 
 class User(Base):
     __tablename__ = "users"

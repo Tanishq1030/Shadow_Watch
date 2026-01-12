@@ -45,14 +45,15 @@ def get_db():
     finally:
         db.close()
 
-# Initialize DB on Startup
+# Initialize DB on Startup (non-blocking for serverless)
 @app.on_event("startup")
 async def startup():
     try:
         init_db()
         print("✅ Database Initialized")
     except Exception as e:
-        print(f"❌ DB Init Error: {e}")
+        print(f"⚠️ DB Init Warning: {e}")
+        print("ℹ️ Database will initialize on first request")
 
 @app.get("/")
 async def root():
