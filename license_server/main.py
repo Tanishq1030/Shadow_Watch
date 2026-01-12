@@ -66,6 +66,40 @@ async def root():
     }
 
 
+@app.get("/health")
+async def health_check(db: Session = Depends(get_db)):
+    """Diagnostic endpoint to check DB and Redis health"""
+    health = {
+        "status": "checking",
+        "database": "unknown",
+        "redis": "unknown",
+        "env": {
+            "has_db_url": bool(os.getenv("DATABASE_URL")),
+            "has_redis_url": bool(os.getenv("REDIS_URL") or os.getenv("KV_REST_API_URL")),
+        }
+    }
+    
+    # Check DB
+    try:
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        health["database"] = "connected"
+    except Exception as e:
+        health["database"] = f"error: {str(e)}"
+    
+    # Check Redis
+    try:
+        if LicenseStore._use_redis():
+            health["redis"] = "connected"
+        else:
+            health["redis"] = "using-memory-fallback"
+    except Exception as e:
+        health["redis"] = f"error: {str(e)}"
+        
+    health["status"] = "operational" if health["database"] == "connected" and "error" not in health["redis"] else "degraded"
+    return health
+
+
 @app.post("/admin/generate-keys")
 async def admin_generate_keys(count: int = 10, db: Session = Depends(get_db)):
     """
