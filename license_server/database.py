@@ -1,32 +1,41 @@
 import os
+import re
 from sqlalchemy import create_engine, Column, String, Integer, DateTime, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
+from urllib.parse import urlparse, parse_qs, urlencode
 
 # Database connection string (from Vercel env vars)
-DATABASE_URL = os.getenv("PLANETSCALE_URL") or os.getenv("DATABASE_URL")
+RAW_URL = os.getenv("PLANETSCALE_URL") or os.getenv("DATABASE_URL")
 
-# Fallback for local testing
-if not DATABASE_URL:
-    DATABASE_URL = "sqlite:///./local_test.db"
-    connect_args = {}
-else:
-    DATABASE_URL = DATABASE_URL.strip().strip('"').strip("'")
-    if DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+def get_connection_url(url: str) -> str:
+    if not url:
+        return "sqlite:///./local_test.db"
     
-    # Handle SSL for CockroachDB/Postgres on Vercel
-    if "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL:
-        # Standard Vercel/CockroachDB SSL param
-        if "?" not in DATABASE_URL:
-            DATABASE_URL += "?sslmode=verify-full"
-        elif "sslmode" not in DATABASE_URL:
-            DATABASE_URL += "&sslmode=verify-full"
+    url = url.strip().strip('"').strip("'")
     
-    connect_args = {}
-    if "mysql" in DATABASE_URL:
-        connect_args = {"ssl": {"ssl_ca": "/etc/ssl/cert.pem"}}
+    # Handle CockroachDB / Postgres
+    if url.startswith("postgres"):
+        # Ensure postgresql://
+        if not url.startswith("postgresql://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+        
+        # Parse and ensure sslmode
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query)
+        params['sslmode'] = ['verify-full']
+        
+        new_query = urlencode(params, doseq=True)
+        url = parsed._replace(query=new_query).geturl()
+        
+    return url
+
+DATABASE_URL = get_connection_url(RAW_URL)
+
+connect_args = {}
+if "mysql" in DATABASE_URL:
+    connect_args = {"ssl": {"ssl_ca": "/etc/ssl/cert.pem"}}
 
 engine = create_engine(
     DATABASE_URL,

@@ -14,7 +14,7 @@ from database import SessionLocal, init_db, User, AuditLog
 
 app = FastAPI(title="Shadow Watch License Server")
 
-# ✅ FINAL CORS CONFIGURATION (User Requested)
+# ✅ FINAL CORS CONFIGURATION
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -58,7 +58,7 @@ async def root():
     return {
         "service": "Shadow Watch License Server",
         "status": "operational",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "storage": "Redis + CockroachDB"
     }
 
@@ -125,7 +125,8 @@ async def create_trial_license(req: TrialRequest, db: Session = Depends(get_db))
         action="license.created_trial",
         actor_id=user.id,
         target_id=key,
-        details=f"Trial generated for {user.email}"
+        details=f"Trial generated for {user.email}",
+        ip_address="0.0.0.0"
     ))
     db.commit()
 
