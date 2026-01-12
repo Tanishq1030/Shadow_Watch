@@ -37,12 +37,6 @@ def get_db():
     finally:
         db.close()
 
-# Initialize DB (create tables if needed - good for serverless cold starts)
-try:
-    init_db()
-except Exception as e:
-    print(f"⚠️ DB Init Warning: {e}")
-
 # Request/Response models
 class VerifyRequest(BaseModel):
     key: str
@@ -53,24 +47,25 @@ class ReportRequest(BaseModel):
     timestamp: str
 
 @app.on_event("startup")
-async def startup():
-    """Startup message"""
-    print("✅ Shadow Watch License Server started")
-    print("💾 Storage: Redis (Hot) + PlanetScale MySQL (Cold)")
-
-
-@app.on_event("startup")
 async def startup_event():
-    print("🚀 Shadow Watch License Server v1.0.6 Starting...")
+    print("🚀 Shadow Watch License Server v1.0.8 Starting...")
     print(f"📡 DB URL Present: {bool(os.getenv('DATABASE_URL'))}")
 
+# Initialize DB
+# Moved out of global scope to prevent server crashes if DB is unreachable
 @app.get("/")
 async def root():
     """Health check endpoint"""
+    # Attempt DB init here once if needed
+    try:
+        init_db()
+    except:
+        pass
+        
     return {
         "service": "Shadow Watch License Server",
         "status": "operational",
-        "version": "1.0.6",
+        "version": "1.0.8",
         "storage": "Redis + MySQL"
     }
 
