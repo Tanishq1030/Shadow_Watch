@@ -1,3 +1,4 @@
+// Utility functions for Tailwind class merging
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
