@@ -19,8 +19,8 @@ app = FastAPI(title="Shadow Watch License Server")
 # Add CORS middleware to allow requests from the frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allowing all for now to solve persistent Vercel domain mismatches
-    allow_credentials=True,
+    allow_origins=["*"], 
+    allow_credentials=False, # Must be False when allow_origins is ["*"]
     allow_methods=["*"],
     allow_headers=["*"],
 )
