@@ -86,29 +86,22 @@ class AdminClient:
         Generate Enterprise license
         
         Args:
-            user_id: User identifier
-            capabilities: Enterprise capabilities
-                {
-                    "max_users": 1000,
-                    "offline_validation": True,
-                    "sso": True,
-                    "audit_logs": True,
-                    "rate_limit_multiplier": 5
-                }
-        
-        Returns:
-            Enterprise license details
+        self, 
+        user_id: str, 
+        capabilities: dict,
+        metadata: dict = None
+    ) -> Dict:
         """
-        path = "/license/enterprise"
-        headers = self._admin_headers("POST", path)
-        
-        response = await self.client.post(
-            f"{self.api_url}{path}",
-            json={
+        Generate Enterprise license (3 years, custom capabilities)
+        """
+        return await self._admin_request(
+            "POST",
+            "/api/v1/license/enterprise",
+            {
                 "user_id": user_id,
                 "capabilities": capabilities,
                 "metadata": metadata
-            },
+            }
         )
     
     async def create_invariant_license(self, user_id: str, metadata: dict = None) -> Dict:
@@ -124,13 +117,12 @@ class AdminClient:
     async def revoke_license(self, license_key: str) -> Dict:
         """
         Revoke a license immediately
-            f"{self.api_url}{path}",
-            json={"license_key": license_key},
-            headers=headers
+        """
+        return await self._admin_request(
+            "POST",
+            "/api/v1/license/revoke",
+            {"license_key": license_key}
         )
-        
-        response.raise_for_status()
-        return response.json()
     
     async def validate_license(self, license_key: str) -> Dict:
         """
