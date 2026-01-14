@@ -13,16 +13,10 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-# Import using absolute imports (Vercel compatible)
-try:
-    from routes.license import router as license_router
-    from database import close_pool
-    from kv_store import get_redis
-except ImportError:
-    # Fallback for local development
-    from .routes.license import router as license_router
-    from .database import close_pool
-    from .kv_store import get_redis
+# Use relative imports for Vercel
+from .routes.license import router as license_router
+from .database import close_pool
+from .kv_store import get_redis
 
 
 @asynccontextmanager
