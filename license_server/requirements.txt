@@ -1,18 +1,8 @@
 # License Server Requirements (Vercel Serverless)
 
-# Core web framework
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 pydantic>=2.5.0
-
-# Database - Supabase client for serverless
-supabase>=2.0.0
-
-# Redis
-redis[hiredis]>=5.0.0
-
-# HTTP client (for admin client)
+supabase>=2.3.0
+redis>=5.0.0
 httpx>=0.25.0
-
-# Production server
-gunicorn>=21.2.0
