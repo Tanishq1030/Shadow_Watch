@@ -10,7 +10,7 @@ from typing import Dict
 
 async def verify_license_key(
     license_key: str,
-    license_server_url: str = "https://shadow-watch-three.vercel.app"
+    license_server_url: str = "https://shadow-watch-ten.vercel.app"
 ) -> Dict:
     """
     Verify license key with Shadow Watch license server

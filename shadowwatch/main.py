@@ -47,7 +47,7 @@ class ShadowWatch:
         self,
         database_url: str,
         license_key: Optional[str] = None,
-        license_server_url: str = "https://shadow-watch-rust.vercel.app",
+        license_server_url: str = "https://shadow-watch-ten.vercel.app",
         redis_url: Optional[str] = None
     ):
         """

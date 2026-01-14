@@ -19,7 +19,7 @@ class AdminClient:
     
     Usage:
         admin = AdminClient(
-            api_url="https://shadow-watch-rust.vercel.app",
+            api_url="https://shadow-watch-ten.vercel.app",
             admin_secret="your_admin_secret"
         )
         
