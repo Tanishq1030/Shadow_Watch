@@ -7,7 +7,7 @@ Simplified Redis interface for caching and rate limiting.
 import os
 import json
 from typing import Optional, Any
-import redis.asyncio as redis
+import redis.asyncio as aioredis  # Changed alias to avoid conflict
 
 # Redis connection
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
@@ -21,7 +21,7 @@ async def get_redis():
     global _redis_client
     
     if _redis_client is None:
-        _redis_client = redis.from_url(
+        _redis_client = aioredis.from_url(  # Use aioredis alias
             REDIS_URL,
             decode_responses=True,
             encoding="utf-8"
@@ -88,4 +88,4 @@ class RedisKV:
 
 
 # Export singleton instance
-redis = RedisKV()
+redis_kv = RedisKV()

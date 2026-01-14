@@ -20,7 +20,7 @@ import json
 import time
 
 from ..database import get_db
-from ..kv_store import redis
+from ..kv_store import redis_kv
 from ..auth import verify_admin
 
 router = APIRouter(prefix="/api/v1/license", tags=["licenses"])
@@ -156,7 +156,7 @@ async def create_invariant_license(
     # Store in Redis (hot cache)
     ttl_seconds = int((expires_at - issued_at).total_seconds())
     
-    await redis.setex(
+    await redis_kv.setex(
         f"license:{license_key}",
         ttl_seconds,
         json.dumps({
@@ -231,7 +231,7 @@ async def create_enterprise_license(
     # Store in Redis
     ttl_seconds = int((expires_at - issued_at).total_seconds())
     
-    await redis.setex(
+    await redis_kv.setex(
         f"license:{license_key}",
         ttl_seconds,
         json.dumps({
@@ -272,7 +272,7 @@ async def validate_license(req: ValidateRequest):
     license_key = req.license_key
     
     # 1. Try Redis (hot path)
-    cached = await redis.get(f"license:{license_key}")
+    cached = await redis_kv.get(f"license:{license_key}")
     
     if cached:
         data = json.loads(cached)
@@ -335,7 +335,7 @@ async def validate_license(req: ValidateRequest):
         "metadata": metadata
     }
     
-    await redis.setex(
+    await redis_kv.setex(
         f"license:{license_key}",
         ttl_seconds,
         json.dumps(cache_data)
@@ -381,16 +381,16 @@ async def revoke_license(
         )
     
     # Update Redis if cached
-    cached = await redis.get(f"license:{license_key}")
+    cached = await redis_kv.get(f"license:{license_key}")
     
     if cached:
         data = json.loads(cached)
         data["revoked"] = True
         
         # Keep existing TTL
-        ttl = await redis.ttl(f"license:{license_key}")
+        ttl = await redis_kv.ttl(f"license:{license_key}")
         
-        await redis.setex(
+        await redis_kv.setex(
             f"license:{license_key}",
             ttl if ttl > 0 else 3600,
             json.dumps(data)
