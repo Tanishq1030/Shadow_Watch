@@ -91,6 +91,11 @@ verify_package.py
 test_pypi_install.py
 license_server/admin_endpoint_snippet.py
 
+# Cleanup utility scripts (one-time use)
+count_codeblocks.py
+fix_corruption.py
+fix_terminals.py
+
 # mypy
 .mypy_cache/
 .dmypy.json

@@ -1,0 +1,44 @@
+/* Shiki terminal styling */
+.shiki-terminal pre {
+    margin: 0;
+    padding: 0;
+    background: transparent !important;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.shiki-terminal code {
+    background: transparent !important;
+    padding: 0;
+    font-family: inherit;
+}
+
+.shiki-terminal .line {
+    min-height: 1.5em;
+}
+
+/* Hide Shiki spans initially - will be revealed by typing animation */
+.shiki-terminal span.line>span {
+    opacity: 0;
+}
+
+/* Typing cursor */
+.typing-cursor {
+    animation: blink 500ms step-end infinite;
+    color: #a78bfa;
+    font-weight: bold;
+    margin-left: 2px;
+}
+
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+}

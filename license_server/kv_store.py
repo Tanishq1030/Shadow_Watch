@@ -1,255 +1,91 @@
 """
-Vercel KV (Redis) License Storage
+KV Store - Redis Wrapper
 
-Replaces SQLite with Redis for serverless compatibility.
-Works with both Vercel KV (production) and local Redis (development).
+Simplified Redis interface for caching and rate limiting.
 """
 
 import os
 import json
-from typing import Optional, Dict, List
-from datetime import datetime
+from typing import Optional, Any
+import redis.asyncio as redis
 
-# Lazy-loaded Redis client
+# Redis connection
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+
+# Create async Redis client
 _redis_client = None
 
-def get_redis_client():
-    """Lazily initialize Redis client to prevent boot-time crashes"""
+
+async def get_redis():
+    """Get Redis client (singleton)"""
     global _redis_client
-    if _redis_client is not None:
-        return _redis_client
-        
-    try:
-        from redis import Redis
-        # Use Vercel's REDIS_URL or KV_REST_API_URL, otherwise local Redis
-        redis_url = os.getenv("REDIS_URL") or os.getenv("KV_REST_API_URL") or "redis://localhost:6379"
-        _redis_client = Redis.from_url(redis_url, decode_responses=True)
-        # We don't ping() here to avoid blocking startup
-        return _redis_client
-    except Exception as e:
-        print(f"⚠️ Redis initialization error: {e}")
-        return None
-
-
-class LicenseStore:
-    """
-    Redis-based license storage
     
-    Responsibility:
-    - Store/retrieve license keys from Redis (Vercel KV)
-    - Handle usage reporting
-    - Provide stats/analytics
+    if _redis_client is None:
+        _redis_client = redis.from_url(
+            REDIS_URL,
+            decode_responses=True,
+            encoding="utf-8"
+        )
+    
+    return _redis_client
+
+
+class RedisKV:
+    """
+    Redis key-value store wrapper
+    
+    Provides simplified async interface for common operations.
     """
     
-    # In-memory fallback (for testing without Redis)
-    _memory_store: Dict[str, Dict] = {}
-    _memory_usage: Dict[str, List] = {}
+    @staticmethod
+    async def get(key: str) -> Optional[str]:
+        """Get value by key"""
+        client = await get_redis()
+        return await client.get(key)
     
     @staticmethod
-    def _use_redis() -> bool:
-        """Check if Redis is available"""
-        return get_redis_client() is not None
-    
-    @staticmethod
-    def _license_key_to_redis_key(license_key: str) -> str:
-        """Convert license key to Redis key"""
-        return f"license:{license_key}"
-    
-    @staticmethod
-    def save_license(
-        license_key: str,
-        tier: str,
-        max_events: int,
-        customer_name: str = "Trial User",
-        customer_email: str = "",
-        expires_at: str = "",
-    ) -> bool:
-        """
-        Save license to Redis
+    async def set(key: str, value: Any, ex: Optional[int] = None):
+        """Set value with optional expiration (seconds)"""
+        client = await get_redis()
         
-        Args:
-            license_key: Unique license key
-            tier: License tier (trial, pro, enterprise)
-            max_events: Maximum events allowed
-            customer_name: Customer name
-            customer_email: Customer email
-            expires_at: Expiration date (ISO format)
+        # Serialize if not string
+        if not isinstance(value, str):
+            value = json.dumps(value)
         
-        Returns:
-            True if saved successfully
-        """
-        license_data = {
-            "license_key": license_key,
-            "tier": tier,
-            "max_events": max_events,
-            "customer_name": customer_name,
-            "customer_email": customer_email,
-            "created_at": datetime.utcnow().isoformat(),
-            "expires_at": expires_at,
-            "is_active": True
-        }
-        
-        try:
-            if LicenseStore._use_redis():
-                # Store in Redis
-                redis_key = LicenseStore._license_key_to_redis_key(license_key)
-                redis_client.set(redis_key, json.dumps(license_data))
-                
-                # Add to index
-                redis_client.sadd("license:index", license_key)
-            else:
-                # Fallback: in-memory
-                LicenseStore._memory_store[license_key] = license_data
-            
-            return True
-            
-        except Exception as e:
-            print(f"Error saving license: {e}")
-            return False
+        if ex:
+            await client.setex(key, ex, value)
+        else:
+            await client.set(key, value)
     
     @staticmethod
-    def get_license(license_key: str) -> Optional[Dict]:
-        """
-        Get license from Redis
-        
-        Args:
-            license_key: License key to retrieve
-        
-        Returns:
-            License data dict or None if not found
-        """
-        try:
-            if LicenseStore._use_redis():
-                client = get_redis_client()
-                redis_key = LicenseStore._license_key_to_redis_key(license_key)
-                data = client.get(redis_key)
-                
-                if data:
-                    return json.loads(data)
-                return None
-            else:
-                # Fallback: in-memory
-                return LicenseStore._memory_store.get(license_key)
-                
-        except Exception as e:
-            print(f"Error getting license: {e}")
-            return None
+    async def setex(key: str, seconds: int, value: Any):
+        """Set value with expiration"""
+        await RedisKV.set(key, value, ex=seconds)
     
     @staticmethod
-    def delete_license(license_key: str) -> bool:
-        """Delete/deactivate license"""
-        try:
-            if LicenseStore._use_redis():
-                client = get_redis_client()
-                redis_key = LicenseStore._license_key_to_redis_key(license_key)
-                client.delete(redis_key)
-                client.delete(f"usage:{license_key}") # Delete usage data associated with the license
-                client.srem("license:index", license_key)
-            else:
-                # Fallback: in-memory
-                LicenseStore._memory_store.pop(license_key, None)
-            
-            return True
-            
-        except Exception as e:
-            print(f"Error deleting license: {e}")
-            return False
+    async def delete(key: str):
+        """Delete key"""
+        client = await get_redis()
+        await client.delete(key)
     
     @staticmethod
-    def list_all_licenses() -> List[Dict]:
-        """List all licenses"""
-        try:
-            if LicenseStore._use_redis():
-                client = get_redis_client()
-                license_keys = client.smembers("license:index")
-                licenses = []
-                
-                for key in license_keys:
-                    license_data = LicenseStore.get_license(key)
-                    if license_data:
-                        licenses.append(license_data)
-                
-                return licenses
-            else:
-                # Fallback: in-memory
-                return list(LicenseStore._memory_store.values())
-                
-        except Exception as e:
-            print(f"Error listing licenses: {e}")
-            return []
+    async def incr(key: str) -> int:
+        """Increment counter (atomic)"""
+        client = await get_redis()
+        return await client.incr(key)
     
     @staticmethod
-    def report_usage(license_key: str, events_count: int, timestamp: str):
-        """
-        Store usage report
-        
-        Args:
-            license_key: License key
-            events_count: Number of events
-            timestamp: Report timestamp
-        """
-        report_data = {
-            "license_key": license_key,
-            "events_count": events_count,
-            "timestamp": timestamp
-        }
-        
-        try:
-            if LicenseStore._use_redis():
-                client = get_redis_client()
-                # Store usage as a list for the license key
-                client.rpush(f"usage:{license_key}", json.dumps(report_data))
-                # Keep only last 100 events in Redis to save space
-                client.ltrim(f"usage:{license_key}", -100, -1)
-            else:
-                # Fallback: in-memory
-                if license_key not in LicenseStore._memory_usage:
-                    LicenseStore._memory_usage[license_key] = []
-                LicenseStore._memory_usage[license_key].append(report_data)
-            
-            return True
-            
-        except Exception as e:
-            print(f"Error reporting usage: {e}")
-            return False
+    async def expire(key: str, seconds: int):
+        """Set expiration on existing key"""
+        client = await get_redis()
+        await client.expire(key, seconds)
     
     @staticmethod
-    def get_total_events(license_key: str) -> int:
-        """Get total events for a license"""
-        try:
-            if LicenseStore._use_redis():
-                client = get_redis_client()
-                # Retrieve usage reports from the list
-                reports_json = client.lrange(f"usage:{license_key}", 0, -1)
-                total = 0
-                
-                for data in reports_json:
-                    if data:
-                        report = json.loads(data)
-                        total += report.get("events_count", 0)
-                
-                return total
-            else:
-                # Fallback: in-memory
-                reports = LicenseStore._memory_usage.get(license_key, [])
-                return sum(r.get("events_count", 0) for r in reports)
-                
-        except:
-            return 0
+    async def ttl(key: str) -> int:
+        """Get TTL for key"""
+        client = await get_redis()
+        return await client.ttl(key)
 
-    @staticmethod
-    def clear_all() -> bool:
-        """Purge all data from storage (Factory Reset)"""
-        try:
-            if LicenseStore._use_redis():
-                client = get_redis_client()
-                client.flushdb()
-                print("♻️ Redis store flushed")
-            
-            # Always clear memory fallback too
-            LicenseStore._memory_store.clear()
-            LicenseStore._memory_usage.clear()
-            return True
-        except Exception as e:
-            print(f"Error flushing store: {e}")
-            return False
+
+# Export singleton instance
+redis = RedisKV()

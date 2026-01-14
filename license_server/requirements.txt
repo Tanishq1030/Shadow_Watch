@@ -1,8 +1,18 @@
-fastapi
-uvicorn[standard]
-pydantic
-redis
-sqlalchemy
-psycopg2-binary
-email-validator
-supabase
+# License Server Pro - Requirements
+
+# Core dependencies
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+
+# Database
+asyncpg>=0.29.0  # PostgreSQL/CockroachDB async driver
+
+# Redis
+redis[hiredis]>=5.0.0  # Async Redis with C parser
+
+# HTTP client (for admin client)
+httpx>=0.25.0
+
+# Production server
+gunicorn>=21.2.0

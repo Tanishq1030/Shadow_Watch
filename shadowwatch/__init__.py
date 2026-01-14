@@ -10,7 +10,7 @@ FREE TIER (no license needed):
 - Tracks user activity (behavioral analytics)
 - Generates behavioral profiles (user understanding)
 
-PRO TIER (requires license):
+INVARIANT TIER (requires license):
 - Temporal continuity measurement (ATO detection)
 - Behavioral divergence detection (compromise detection)
 - Pre-auth intent analysis (credential stuffing prevention)
@@ -27,15 +27,15 @@ Usage:
     # Get user profile
     profile = await sw.get_profile(user_id=123)
     
-    # Pro tier (requires license)
+    # Invariant tier (requires license)
     sw = ShadowWatch(
         database_url="postgresql://...",
-        license_key="SW-PRO-XXXX-XXXX-XXXX-XXXX"  
+        license_key="SW-INV-v1-XXXX-XXXX-XXXX"  
     )
     continuity = await sw.calculate_continuity("user_123")
 """
 
-__version__ = "2.0.0"
+__version__ = "1.0.0"
 __author__ = "Tanishq"
 __license__ = "MIT"
 

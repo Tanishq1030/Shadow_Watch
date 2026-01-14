@@ -39,9 +39,9 @@ const Navbar = () => {
           </Link>
 
           <div className="hidden md:flex items-center gap-6">
-            <a href="https://github.com/Tanishq1030/Shadow_Watch/tree/main/docs" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/docs" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Docs
-            </a>
+            </Link>
             <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Learn
             </a>

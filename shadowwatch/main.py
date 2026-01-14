@@ -58,7 +58,7 @@ class ShadowWatch:
         - get_profile() - Get user profile
         - get_library() - Get interest library (alias for get_profile)
         
-        Pro Tier (requires license_key):
+        Invariant Tier (requires license_key):
         - calculate_continuity() - Temporal actor persistence
         - detect_divergence() - Behavioral divergence detection
         - pre_auth_intent() - Pre-auth intent analysis
@@ -74,10 +74,10 @@ class ShadowWatch:
             sw = ShadowWatch(database_url="postgresql://localhost/db")
             await sw.track(user_id=123, entity_id="AAPL", action="view")
             
-            # Pro tier (with license)
+            # Invariant tier (with license)
             sw = ShadowWatch(
                 database_url="postgresql://localhost/db",
-                license_key="SW-PRO-XXXX-XXXX-XXXX-XXXX"
+                license_key="SW-INV-v1-XXXX-XXXX-XXXX"
             )
             continuity = await sw.calculate_continuity("user_123")
         """
@@ -120,7 +120,7 @@ class ShadowWatch:
         # FREE TIER SETUP (always available)
         self._init_free_tier()
         
-        # PRO TIER SETUP (conditional)
+        # INVARIANT TIER SETUP (conditional)
         self._pro_enabled = False
         if license_key:
             # Note: Pro activation happens lazily on first Pro method call
@@ -284,7 +284,7 @@ class ShadowWatch:
         Calculate trust score for login/sensitive action
         
         NOTE: This is a legacy feature that requires license.
-        Consider using Pro tier's calculate_continuity() for better ATO detection.
+        Consider using Invariant tier's calculate_continuity() for better ATO detection.
         
         Args:
             request_context: {
@@ -309,7 +309,7 @@ class ShadowWatch:
         async with self.AsyncSessionLocal() as db:
             return await calculate_trust_score(db, user_id, request_context)
     
-    # ===== PRO TIER PUBLIC API =====
+    # ===== INVARIANT TIER PUBLIC API =====
     
     async def calculate_continuity(
         self,
@@ -317,20 +317,20 @@ class ShadowWatch:
         context: Optional[Dict] = None
     ):
         """
-        Calculate temporal actor persistence - PRO FEATURE
+        Calculate temporal actor persistence - INVARIANT FEATURE
         
         Measures whether the current actor controlling an account
         remains coherent with the account's historical behavior.
         
-        ⚠️ This is a Shadow Watch Pro feature.
+        ⚠️ This is a Shadow Watch Invariant feature.
         
         To use this feature:
-        1. Install Pro: pip install shadowwatch-pro
+        1. Install Invariant: pip install shadowwatch-invariant
         2. Get a license: https://shadowwatch.dev/pricing
         3. Initialize with license_key:
            
            sw = ShadowWatch(
-               license_key="SW-PRO-XXXX-XXXX-XXXX-XXXX",
+               license_key="SW-INV-v1-XXXX-XXXX-XXXX",
                database_url="postgresql://..."
            )
         
@@ -351,13 +351,13 @@ class ShadowWatch:
         """
         if not self._pro_enabled:
             raise LicenseError(
-                "calculate_continuity() requires Shadow Watch Pro.\n\n"
+                "calculate_continuity() requires Shadow Watch Invariant.\n\n"
                 "To use this feature:\n"
-                "1. Install: pip install shadowwatch-pro\n"
+                "1. Install: pip install shadowwatch-invariant\n"
                 "2. Get license: https://shadowwatch.dev/pricing\n"
                 "3. Add license_key parameter:\n"
                 "   sw = ShadowWatch(\n"
-                "       license_key='SW-PRO-XXXX-XXXX-XXXX-XXXX',\n"
+                "       license_key='SW-INV-v1-XXXX-XXXX-XXXX',\n"
                 "       database_url='postgresql://...'\n"
                 "   )"
             )
@@ -370,12 +370,12 @@ class ShadowWatch:
         window: Optional[int] = None
     ):
         """
-        Detect behavioral divergence - PRO FEATURE
+        Detect behavioral divergence - INVARIANT FEATURE
         
         Detects when behavioral evolution stops being self-consistent
         and starts being adversarial.
         
-        ⚠️ This is a Shadow Watch Pro feature.
+        ⚠️ This is a Shadow Watch Invariant feature.
         
         Get started: https://shadowwatch.dev/pricing
         
@@ -396,7 +396,7 @@ class ShadowWatch:
         """
         if not self._pro_enabled:
             raise LicenseError(
-                "detect_divergence() requires Shadow Watch Pro.\n"
+                "detect_divergence() requires Shadow Watch Invariant.\n"
                 "Get started: https://shadowwatch.dev/pricing"
             )
         
@@ -408,12 +408,12 @@ class ShadowWatch:
         observations: Dict
     ):
         """
-        Analyze pre-authentication intent - PRO FEATURE
+        Analyze pre-authentication intent - INVARIANT FEATURE
         
         Analyzes behavioral signals before authentication to detect
         credential stuffing and other pre-auth attacks.
         
-        ⚠️ This is a Shadow Watch Pro feature.
+        ⚠️ This is a Shadow Watch Invariant feature.
         
         Get started: https://shadowwatch.dev/pricing
         
@@ -437,7 +437,7 @@ class ShadowWatch:
         """
         if not self._pro_enabled:
             raise LicenseError(
-                "pre_auth_intent() requires Shadow Watch Pro.\n"
+                "pre_auth_intent() requires Shadow Watch Invariant.\n"
                 "Get started: https://shadowwatch.dev/pricing"
             )
         

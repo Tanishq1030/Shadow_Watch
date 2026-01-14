@@ -9,7 +9,7 @@
 Behavioral intelligence library for understanding user patterns. Choose your tier:
 
 - **Free Tier** (MIT License) - Activity tracking & interest profiling
-- **Pro Tier** (Commercial) - Account takeover detection & behavioral security
+- **INVARIANT TIER** (Commercial) - Account takeover detection & behavioral security
 
 ---
 
@@ -59,14 +59,14 @@ library = await sw.get_library(user_id=123)
 
 ---
 
-## 🔐 Pro Tier
+## 🔐 INVARIANT TIER
 
 Advanced behavioral security features for detecting account takeovers and compromises.
 
 ### Installation
 
 ```bash
-pip install shadowwatch-pro
+pip install shadowwatch-invariant
 ```
 
 ### Get License
@@ -81,14 +81,14 @@ from shadowwatch import ShadowWatch
 
 # Initialize with Pro license
 sw = ShadowWatch(
-    license_key="SW-PRO-XXXX-XXXX-XXXX-XXXX",
+    license_key="SW-INV-v1-XXXX-XXXX-XXXX-XXXX",
     database_url="postgresql://localhost/db"
 )
 
 # All free features still work
 await sw.track(user_id=123, entity_id="AAPL", action="view")
 
-# Plus Pro features:
+# Plus Invariant features:
 
 # Calculate temporal continuity
 continuity = await sw.calculate_continuity("user_123")
@@ -106,7 +106,7 @@ intent = await sw.pre_auth_intent("user@example.com", {
 # Returns: {"intent_score": 0.85, "confidence": 0.73}
 ```
 
-### Pro Features
+### Invariant features
 
 🔐 **Temporal Continuity Measurement** - Detect if current actor is still the account owner  
 🔐 **Behavioral Divergence Detection** - Three attack modes (shock, creep, fracture)  
@@ -139,7 +139,7 @@ await sw.init_database()
 - `shadow_watch_interests` - Aggregated interest scores
 - `shadow_watch_library_versions` - Profile snapshots
 
-### Pro Tier Database (4 additional tables)
+### INVARIANT TIER Database (4 additional tables)
 
 ```bash
 # Run Pro migrations
@@ -156,7 +156,7 @@ python -m shadowwatch.storage.migrations.run_migrations "postgresql://localhost/
 
 ## Comparison
 
-| Feature | Free Tier | Pro Tier |
+| Feature | Free Tier | INVARIANT TIER |
 |---------|-----------|----------|
 | **Activity Tracking** | ✅ Unlimited | ✅ Unlimited |
 | **Interest Profiles** | ✅ Auto-generated | ✅ Auto-generated |
@@ -194,13 +194,13 @@ async def track_activity_middleware(request: Request, call_next):
     return await call_next(request)
 ```
 
-### FastAPI Integration (Pro Tier)
+### FastAPI Integration (INVARIANT TIER)
 
 ```python
 from shadowwatch import ShadowWatch, LicenseError
 
 sw = ShadowWatch(
-    license_key="SW-PRO-...",
+    license_key="SW-INV-v1-...",
     database_url="postgresql://localhost/db"
 )
 
@@ -234,7 +234,7 @@ async def login(credentials: LoginRequest):
 - **[Getting Started](./docs/GETTING_STARTED.md)** - 5-minute setup guide
 - **[API Reference](./docs/API_REFERENCE.md)** - Complete API documentation
 - **[Integration Guides](./docs/INTEGRATION_GUIDES.md)** - FastAPI, Django, Flask examples
-- **[Pro Features Guide](./docs/PRO_FEATURES.md)** - Advanced security features *(coming soon)*
+- **[Invariant features Guide](./docs/PRO_FEATURES.md)** - Advanced security features *(coming soon)*
 
 ---
 
@@ -247,7 +247,7 @@ async def login(credentials: LoginRequest):
 - **License:** MIT (Open Source)
 - **Support:** GitHub Issues
 
-### Pro Tier
+### INVARIANT TIER
 
 | Plan | Price | Events/Month | Support |
 |------|-------|--------------|---------|
@@ -270,8 +270,8 @@ You get a helpful `LicenseError` with installation instructions. Your app keeps 
 ### Can I upgrade from free to Pro later?
 **Absolutely.** Just add the `license_key` parameter. All your existing data stays intact.
 
-### Do I need shadowwatch-pro installed for free tier?
-**No.** Free tier works standalone. Only install `shadowwatch-pro` if you have a Pro license.
+### Do I need shadowwatch-invariant installed for free tier?
+**No.** Free tier works standalone. Only install `shadowwatch-invariant` if you have a Pro license.
 
 ### Is my data sent to Shadow Watch servers?
 **Never.** Everything runs on your infrastructure. Free or Pro.
@@ -281,7 +281,7 @@ You get a helpful `LicenseError` with installation instructions. Your app keeps 
 ## License
 
 - **Free Tier:** MIT License (Open Source)
-- **Pro Tier:** Commercial License
+- **INVARIANT TIER:** Commercial License
 
 ---
 
