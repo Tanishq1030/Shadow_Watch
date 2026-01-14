@@ -134,9 +134,17 @@ class ShadowWatch:
         No license verification needed.
         Free tier has NO event limits.
         """
-        # Free tier engines will be added in Day 2 refactoring
-        # For now, just mark that free tier is initialized
+        from shadowwatch.core.tracking import TrackingEngine
+        from shadowwatch.core.library import LibraryEngine
+        from shadowwatch.core.profile import ProfileEngine
+        
+        # Initialize engines
+        self.tracking = TrackingEngine(self.AsyncSessionLocal)
+        self.library = LibraryEngine(self.AsyncSessionLocal)
+        self.profile = ProfileEngine(self.library)
+        
         print("✅ Shadow Watch Free Tier initialized")
+
 
     
     async def _ensure_license(self):
@@ -220,15 +228,8 @@ class ShadowWatch:
                 metadata={"shares": 10, "price": 150.00}
             )
         """
-        # FREE TIER: No license check
-        async with self.AsyncSessionLocal() as db:
-            await track_activity(
-                db=db,
-                user_id=user_id,
-                symbol=entity_id,
-                action=action,
-                event_metadata=metadata
-            )
+        # FREE TIER: Use TrackingEngine
+        return await self.tracking.track(user_id, entity_id, action, metadata)
     
     async def get_profile(self, user_id: int) -> Dict:
         """
@@ -241,6 +242,7 @@ class ShadowWatch:
         
         Returns:
             {
+                "user_id": int,
                 "total_items": int,
                 "fingerprint": str,
                 "library": [...],
@@ -251,9 +253,8 @@ class ShadowWatch:
             profile = await sw.get_profile(user_id=123)
             print(f"User {user_id} has {profile['total_items']} interests")
         """
-        # FREE TIER: No license check
-        async with self.AsyncSessionLocal() as db:
-            return await generate_library_snapshot(db, user_id)
+        # FREE TIER: Use ProfileEngine
+        return await self.profile.get(user_id)
     
     async def get_library(self, user_id: int, limit: int = 15) -> Dict:
         """
@@ -271,7 +272,8 @@ class ShadowWatch:
         Examples:
             library = await sw.get_library(user_id=123)
         """
-        return await self.get_profile(user_id)
+        # FREE TIER: Use LibraryEngine
+        return await self.library.get(user_id, limit)
     
     async def verify_login(
         self,
