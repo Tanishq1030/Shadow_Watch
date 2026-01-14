@@ -24,7 +24,8 @@ async def get_pool():
             DATABASE_URL,
             min_size=2,
             max_size=10,
-            command_timeout=5.0
+            command_timeout=5.0,
+            ssl='require'  # Required for Supabase
         )
     
     return _pool
