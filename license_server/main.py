@@ -9,14 +9,19 @@ Production-grade licensing system with:
 - License revocation
 """
 
+# Vercel serverless compatibility fix
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-# Use relative imports for Vercel
-from .routes.license import router as license_router
-from .database import close_pool
-from .kv_store import get_redis
+# Now use absolute imports (works in Vercel after sys.path fix)
+from routes.license import router as license_router
+from database import close_pool
+from kv_store import get_redis
 
 
 @asynccontextmanager

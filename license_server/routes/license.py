@@ -19,9 +19,9 @@ import base64
 import json
 import time
 
-from ..database import get_db
-from ..kv_store import redis_kv
-from ..auth import verify_admin
+from database import get_db
+from kv_store import redis_kv
+from auth import verify_admin
 
 router = APIRouter(prefix="/api/v1/license", tags=["licenses"])
 
