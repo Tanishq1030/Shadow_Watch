@@ -1,23 +1,14 @@
 """
-License Management Routes - Invariant Implementation
+License Routes - Supabase Client Version
 
-Endpoints:
-- POST /license/invariant - Generate Invariant license (admin)
-- POST /license/enterprise - Generate Enterprise license (admin)
-- POST /license/validate - Validate any license
-- POST /license/revoke - Revoke a license (admin)
+Simplified for Vercel serverless using Supabase client
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Tuple
+from typing import Optional
 import secrets
-import hmac
-import hashlib
-import base64
-import json
-import time
 
 from database import get_db
 from kv_store import redis_kv
@@ -28,95 +19,39 @@ router = APIRouter(prefix="/api/v1/license", tags=["licenses"])
 # Constants
 TRIAL_DURATION_DAYS = 30
 INVARIANT_DURATION_DAYS = 365
-ENTERPRISE_DURATION_DAYS = 365 * 3
-OFFLINE_LICENSE_SECRET = b"OFFLINE_LICENSE_SECRET_CHANGE_IN_PRODUCTION"
+ENTERPRISE_DURATION_DAYS = 1095  # 3 years
 
 
-# ============================================================
-# Models
-# ============================================================
-
-class LicenseRequest(BaseModel):
+# Request models
+class InvariantLicenseRequest(BaseModel):
     user_id: str
-    metadata: Optional[Dict] = None
+    metadata: Optional[dict] = None
 
 
 class EnterpriseLicenseRequest(BaseModel):
     user_id: str
-    capabilities: Dict
-    metadata: Optional[Dict] = None
+    capabilities: dict
+    metadata: Optional[dict] = None
 
 
-class ValidateRequest(BaseModel):
+class RevokeLicenseRequest(BaseModel):
     license_key: str
 
 
-class RevokeRequest (BaseModel):
+class ValidateLicenseRequest(BaseModel):
     license_key: str
 
-
-# ============================================================
-# License Key Generation
-# ============================================================
 
 def generate_license_key(prefix: str = "SW-INV-v1") -> str:
-    """
-    Generate cryptographically secure license key
-    
-    Format: SW-INV-v1-<24 hex chars>
-    Example: SW-INV-v1-9f3a8c2d7e4b1a0c8d91f2a34b6c
-    
-    Note: Also supports legacy SW-PRO-* format for backward compatibility
-    """
-    return f"{prefix}-{secrets.token_hex(12)}"
+    """Generate secure license key"""
+    random_part = secrets.token_hex(12)  # 24 hex chars
+    return f"{prefix}-{random_part}"
 
 
-def sign_offline_payload(payload: dict) -> Tuple[str, str]:
+@router.post("/invariant", dependencies=[Depends(verify_admin)])
+async def create_invariant_license(req: InvariantLicenseRequest):
     """
-    Sign payload for offline validation
-    
-    Returns: (payload_b64, signature_b64)
-    """
-    raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
-    sig = hmac.new(OFFLINE_LICENSE_SECRET, raw, hashlib.sha256).digest()
-    
-    payload_b64 = base64.urlsafe_b64encode(raw).decode().rstrip("=")
-    sig_b64 = base64.urlsafe_b64encode(sig).decode().rstrip("=")
-    
-    return payload_b64, sig_b64
-
-
-def create_offline_license(user_id: str, license_type: str, expires_at: datetime) -> str:
-    """
-    Create offline-capable license token
-    
-    Format: SW-PRO.<payload>.<signature>
-    """
-    payload = {
-        "iss": "shadow-watch",
-        "sub": user_id,
-        "lic": license_type,
-        "iat": int(datetime.utcnow().timestamp()),
-        "exp": int(expires_at.timestamp()),
-        "kid": "v1"
-    }
-    
-    payload_b64, sig_b64 = sign_offline_payload(payload)
-    
-    return f"SW-PRO.{payload_b64}.{sig_b64}"
-
-
-# ============================================================
-# Pro License Generation (Admin Only)
-# ============================================================
-
-@router.post("/invariant")
-async def create_invariant_license(
-    req: LicenseRequest,
-    admin: dict = Depends(verify_admin)
-):
-    """
-    Generate Invariant license - ADMIN ONLY
+    Generate Invariant license (Admin only)
     
     - Duration: 365 days
     - Tier: INVARIANT
@@ -130,74 +65,57 @@ async def create_invariant_license(
     metadata["tier"] = "invariant"
     metadata["max_events"] = 100000
     
-    # Store in database (source of truth)
-    async with get_db() as db:
-        await db.execute(
-            """
-            INSERT INTO licenses (
-                license_key,
-                user_id,
-                license_type,
-                issued_at,
-                expires_at,
-                metadata,
-                is_revoked
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, false)
-            """,
-            license_key,
-            req.user_id,
-            "INVARIANT",
-            issued_at,
-            expires_at,
-            json.dumps(metadata)
-        )
+    # Get Supabase client
+    db = await get_db()
     
-    # Store in Redis (hot cache)
-    ttl_seconds = int((expires_at - issued_at).total_seconds())
-    
-    await redis_kv.setex(
-        f"license:{license_key}",
-        ttl_seconds,
-        json.dumps({
+    # Insert license using Supabase client
+    try:
+        result = db.table("licenses").insert({
+            "license_key": license_key,
             "user_id": req.user_id,
             "license_type": "INVARIANT",
+            "issued_at": issued_at.isoformat(),
             "expires_at": expires_at.isoformat(),
-            "revoked": False,
+            "metadata": metadata,
+            "is_revoked": False,
+            "created_at": issued_at.isoformat()
+        }).execute()
+        
+        # Cache in Redis
+        await redis_kv.set(
+            f"license:{license_key}",
+            {
+                "license_type": "INVARIANT",
+                "expires_at": expires_at.isoformat(),
+                "is_revoked": False,
+                "user_id": req.user_id
+            },
+            ttl=86400  # 24 hours
+        )
+        
+        return {
+            "license_key": license_key,
+            "license_type": "INVARIANT",
+            "user_id": req.user_id,
+            "issued_at": issued_at.isoformat(),
+            "expires_at": expires_at.isoformat(),
             "metadata": metadata
-        })
-    )
+        }
     
-    # Generate offline token (optional)
-    offline_token = create_offline_license(req.user_id, "INVARIANT", expires_at)
-    
-    return {
-        "license_key": license_key,
-        "license_type": "INVARIANT",
-        "issued_at": issued_at.isoformat(),
-        "expires_at": expires_at.isoformat(),
-        "metadata": metadata,
-        "offline_token": offline_token
-    }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
-# ============================================================
-# Enterprise License Generation (Admin Only)
-# ============================================================
-
-@router.post("/enterprise")
-async def create_enterprise_license(
-    req: EnterpriseLicenseRequest,
-    admin: dict = Depends(verify_admin)
-):
+@router.post("/enterprise", dependencies=[Depends(verify_admin)])
+async def create_enterprise_license(req: EnterpriseLicenseRequest):
     """
-    Generate Enterprise license - ADMIN ONLY
+    Generate Enterprise license (Admin only)
     
-    - Duration: 3 years
+    - Duration: 1095 days (3 years)
     - Tier: ENTERPRISE
-    - Capabilities: Custom
+    - Custom capabilities
     """
-    license_key = generate_license_key("SW-ENT")
+    license_key = generate_license_key("SW-ENT-v1")
     issued_at = datetime.utcnow()
     expires_at = issued_at + timedelta(days=ENTERPRISE_DURATION_DAYS)
     
@@ -205,199 +123,144 @@ async def create_enterprise_license(
     metadata["tier"] = "enterprise"
     metadata["capabilities"] = req.capabilities
     
-    # Store in database
-    async with get_db() as db:
-        await db.execute(
-            """
-            INSERT INTO licenses (
-                license_key,
-                user_id,
-                license_type,
-                issued_at,
-                expires_at,
-                metadata,
-                is_revoked
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, false)
-            """,
-            license_key,
-            req.user_id,
-            "ENTERPRISE",
-            issued_at,
-            expires_at,
-            json.dumps(metadata)
-        )
+    # Get Supabase client
+    db = await get_db()
     
-    # Store in Redis
-    ttl_seconds = int((expires_at - issued_at).total_seconds())
-    
-    await redis_kv.setex(
-        f"license:{license_key}",
-        ttl_seconds,
-        json.dumps({
+    try:
+        result = db.table("licenses").insert({
+            "license_key": license_key,
             "user_id": req.user_id,
             "license_type": "ENTERPRISE",
+            "issued_at": issued_at.isoformat(),
             "expires_at": expires_at.isoformat(),
-            "revoked": False,
+            "metadata": metadata,
+            "is_revoked": False,
+            "created_at": issued_at.isoformat()
+        }).execute()
+        
+        # Cache in Redis
+        await redis_kv.set(
+            f"license:{license_key}",
+            {
+                "license_type": "ENTERPRISE",
+                "expires_at": expires_at.isoformat(),
+                "is_revoked": False,
+                "capabilities": req.capabilities
+            },
+            ttl=86400
+        )
+        
+        return {
+            "license_key": license_key,
+            "license_type": "ENTERPRISE",
+            "user_id": req.user_id,
+            "issued_at": issued_at.isoformat(),
+            "expires_at": expires_at.isoformat(),
             "capabilities": req.capabilities,
             "metadata": metadata
-        })
-    )
+        }
     
-    # Generate offline token
-    offline_token = create_offline_license(req.user_id, "ENTERPRISE", expires_at)
-    
-    return {
-        "license_key": license_key,
-        "license_type": "ENTERPRISE",
-        "issued_at": issued_at.isoformat(),
-        "expires_at": expires_at.isoformat(),
-        "capabilities": req.capabilities,
-        "offline_token": offline_token
-    }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-
-# ============================================================
-# License Validation (Public)
-# ============================================================
 
 @router.post("/validate")
-async def validate_license(req: ValidateRequest):
+async def validate_license(req: ValidateLicenseRequest):
     """
-    Validate license key
+    Validate license key (Public endpoint)
     
-    Hot path: Redis → Database
-    Fail closed on ambiguity
+    Returns license status and metadata
     """
     license_key = req.license_key
     
-    # 1. Try Redis (hot path)
+    # Check cache first
     cached = await redis_kv.get(f"license:{license_key}")
-    
     if cached:
-        data = json.loads(cached)
+        # Verify not expired
+        expires_at = datetime.fromisoformat(cached["expires_at"])
+        if datetime.utcnow() > expires_at:
+            return {"valid": False, "reason": "License expired"}
         
-        # Check revocation
-        if data.get("revoked"):
-            raise HTTPException(403, "License revoked")
-        
-        # Check expiration
-        expires_at = datetime.fromisoformat(data["expires_at"])
-        if expires_at < datetime.utcnow():
-            raise HTTPException(403, "License expired")
+        if cached.get("is_revoked"):
+            return {"valid": False, "reason": "License revoked"}
         
         return {
             "valid": True,
-            "license_type": data["license_type"],
-            "user_id": data["user_id"],
-            "expires_at": data["expires_at"],
-            "capabilities": data.get("capabilities"),
-            "metadata": data.get("metadata")
+            "license_type": cached["license_type"],
+            "expires_at": cached["expires_at"]
         }
     
-    # 2. Fallback to database
-    async with get_db() as db:
-        row = await db.fetchrow(
-            """
-            SELECT 
-                user_id,
-                license_type,
-                expires_at,
-                is_revoked,
-                metadata
-            FROM licenses
-            WHERE license_key = $1
-            """,
-            license_key
+    # Query database
+    db = await get_db()
+    
+    try:
+        result = db.table("licenses").select("*").eq("license_key", license_key).execute()
+        
+        if not result.data:
+            return {"valid": False, "reason": "License not found"}
+        
+        license_data = result.data[0]
+        
+        # Check expiry
+        expires_at = datetime.fromisoformat(license_data["expires_at"])
+        if datetime.utcnow() > expires_at:
+            return {"valid": False, "reason": "License expired"}
+        
+        # Check revoked
+        if license_data.get("is_revoked"):
+            return {"valid": False, "reason": "License revoked"}
+        
+        # Cache for future requests
+        await redis_kv.set(
+            f"license:{license_key}",
+            {
+                "license_type": license_data["license_type"],
+                "expires_at": license_data["expires_at"],
+                "is_revoked": license_data["is_revoked"]
+            },
+            ttl=86400
         )
+        
+        return {
+            "valid": True,
+            "license_type": license_data["license_type"],
+            "expires_at": license_data["expires_at"]
+        }
     
-    if not row:
-        raise HTTPException(403, "Invalid license")
-    
-    if row["is_revoked"]:
-        raise HTTPException(403, "License revoked")
-    
-    if row["expires_at"] < datetime.utcnow():
-        raise HTTPException(403, "License expired")
-    
-    # Parse metadata
-    metadata = json.loads(row["metadata"]) if row["metadata"] else {}
-    
-    # Cache in Redis for future requests
-    ttl_seconds = int((row["expires_at"] - datetime.utcnow()).total_seconds())
-    
-    cache_data = {
-        "user_id": row["user_id"],
-        "license_type": row["license_type"],
-        "expires_at": row["expires_at"].isoformat(),
-        "revoked": False,
-        "capabilities": metadata.get("capabilities"),
-        "metadata": metadata
-    }
-    
-    await redis_kv.setex(
-        f"license:{license_key}",
-        ttl_seconds,
-        json.dumps(cache_data)
-    )
-    
-    return {
-        "valid": True,
-        "license_type": row["license_type"],
-        "user_id": row["user_id"],
-        "expires_at": row["expires_at"].isoformat(),
-        "capabilities": metadata.get("capabilities"),
-        "metadata": metadata
-    }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Validation error: {str(e)}")
 
 
-# ============================================================
-# License Revocation (Admin Only)
-# ============================================================
-
-@router.post("/revoke")
-async def revoke_license(
-    req: RevokeRequest,
-    admin: dict = Depends(verify_admin)
-):
+@router.post("/revoke", dependencies=[Depends(verify_admin)])
+async def revoke_license(req: RevokeLicenseRequest):
     """
-    Revoke a license immediately - ADMIN ONLY
-    
-    - Updates database (source of truth)
-    - Updates Redis (hot path)
-    - No grace period
+    Revoke license immediately (Admin only)
     """
     license_key = req.license_key
     
-    # Update database
-    async with get_db() as db:
-        result = await db.execute(
-            """
-            UPDATE licenses
-            SET is_revoked = true
-            WHERE license_key = $1
-            """,
-            license_key
-        )
+    # Get Supabase client
+    db = await get_db()
     
-    # Update Redis if cached
-    cached = await redis_kv.get(f"license:{license_key}")
-    
-    if cached:
-        data = json.loads(cached)
-        data["revoked"] = True
+    try:
+        # Update database
+        result = db.table("licenses").update({
+            "is_revoked": True,
+            "revoked_at": datetime.utcnow().isoformat()
+        }).eq("license_key", license_key).execute()
         
-        # Keep existing TTL
-        ttl = await redis_kv.ttl(f"license:{license_key}")
+        if not result.data:
+            raise HTTPException(status_code=404, detail="License not found")
         
-        await redis_kv.setex(
-            f"license:{license_key}",
-            ttl if ttl > 0 else 3600,
-            json.dumps(data)
-        )
+        # Invalidate cache
+        await redis_kv.delete(f"license:{license_key}")
+        
+        return {
+            "status": "revoked",
+            "license_key": license_key,
+            "revoked_at": datetime.utcnow().isoformat()
+        }
     
-    return {
-        "status": "revoked",
-        "license_key": license_key,
-        "revoked_at": datetime.utcnow().isoformat()
-    }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Revocation error: {str(e)}")
