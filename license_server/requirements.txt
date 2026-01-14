@@ -1,15 +1,15 @@
-# License Server Pro - Requirements
+# License Server Requirements (Vercel Serverless)
 
-# Core dependencies
+# Core web framework
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 pydantic>=2.5.0
 
-# Database
-asyncpg>=0.29.0  # PostgreSQL/CockroachDB async driver
+# Database - Supabase client for serverless
+supabase>=2.0.0
 
 # Redis
-redis[hiredis]>=5.0.0  # Async Redis with C parser
+redis[hiredis]>=5.0.0
 
 # HTTP client (for admin client)
 httpx>=0.25.0

@@ -1,55 +1,45 @@
 """
-Database Connection Management
+Database connection for License Server (Vercel Serverless)
 
-Async PostgreSQL/CockroachDB connection pool.
+Uses Supabase client instead of asyncpg because:
+- Vercel serverless can't maintain connection pools
+- Supabase client handles connections per request
+- Works reliably in serverless environments
 """
-
 import os
-import asyncpg
-from contextlib import asynccontextmanager
+from supabase import create_client, Client
+from typing import Optional
 
-# Database URL from environment
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/shadowwatch")
-
-# Connection pool (singleton)
-_pool = None
+# Initialize Supabase client (singleton)
+_supabase: Optional[Client] = None
 
 
-async def get_pool():
-    """Get database connection pool (singleton)"""
-    global _pool
+def get_supabase() -> Client:
+    """
+    Get or create Supabase client
     
-    if _pool is None:
-        _pool = await asyncpg.create_pool(
-            DATABASE_URL,
-            min_size=2,
-            max_size=10,
-            command_timeout=5.0,
-            ssl='require'  # Required for Supabase
+    Singleton pattern to reuse client across requests
+    """
+    global _supabase
+    
+    if _supabase is None:
+        _supabase = create_client(
+            os.getenv("SUPABASE_URL"),
+            os.getenv("SUPABASE_KEY")
         )
     
-    return _pool
+    return _supabase
 
 
-@asynccontextmanager
 async def get_db():
     """
-    Get database connection from pool
+    Get database client for license operations
     
-    Usage:
-        async with get_db() as db:
-            await db.execute("...")
+    Returns Supabase client (not asyncpg pool)
     """
-    pool = await get_pool()
-    
-    async with pool.acquire() as connection:
-        yield connection
+    return get_supabase()
 
 
 async def close_pool():
-    """Close database pool (on shutdown)"""
-    global _pool
-    
-    if _pool:
-        await _pool.close()
-        _pool = None
+    """No-op for compatibility (Supabase client doesn't need cleanup)"""
+    pass
