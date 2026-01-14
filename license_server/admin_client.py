@@ -109,27 +109,21 @@ class AdminClient:
                 "capabilities": capabilities,
                 "metadata": metadata
             },
-            headers=headers
         )
-        
-        response.raise_for_status()
-        return response.json()
+    
+    async def create_invariant_license(self, user_id: str, metadata: dict = None) -> Dict:
+        """
+        Generate Invariant license (365 days, 100K events/month)
+        """
+        return await self._admin_request(
+            "POST",
+            "/api/v1/license/invariant",
+            {"user_id": user_id, "metadata": metadata}
+        )
     
     async def revoke_license(self, license_key: str) -> Dict:
         """
         Revoke a license immediately
-        
-        Returns:
-            {
-                "status": "revoked",
-                "license_key": "SW-PRO-...",
-                "revoked_at": "2026-01-14T16:22:21Z"
-            }
-        """
-        path = "/license/revoke"
-        headers = self._admin_headers("POST", path)
-        
-        response = await self.client.post(
             f"{self.api_url}{path}",
             json={"license_key": license_key},
             headers=headers
@@ -139,6 +133,7 @@ class AdminClient:
         return response.json()
     
     async def validate_license(self, license_key: str) -> Dict:
+        """
         """
         Validate a license (admin can call without rate limits)
         
@@ -151,10 +146,11 @@ class AdminClient:
         
         response.raise_for_status()
         return response.json()
-
+    
 
 # CLI Usage Example
 async def main():
+
     """Example admin usage"""
     import asyncio
     import os

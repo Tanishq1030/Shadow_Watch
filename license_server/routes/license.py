@@ -23,7 +23,7 @@ from database import get_db
 from kv_store import redis
 from auth import verify_admin
 
-router = APIRouter(prefix="/license", tags=["licenses"])
+router = APIRouter(prefix="/api/v1/license", tags=["licenses"])
 
 # Constants
 TRIAL_DURATION_DAYS = 30
