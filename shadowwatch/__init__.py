@@ -3,20 +3,23 @@ Shadow Watch - Behavioral Intelligence for Your Application
 
 "Like a shadow — always there, never seen."
 
-A passive behavioral biometric system that:
+A passive behavioral biometric system with:
+
+FREE TIER (no license needed):
 - Builds user interest profiles (personalization engine)
-- Generates behavioral fingerprints (anti-fraud layer)
-- Calculates trust scores (adaptive authentication)
-- Predicts user intent (recommendation system)
-- Detects anomalies (security monitoring)
+- Tracks user activity (behavioral analytics)
+- Generates behavioral profiles (user understanding)
+
+PRO TIER (requires license):
+- Temporal continuity measurement (ATO detection)
+- Behavioral divergence detection (compromise detection)
+- Pre-auth intent analysis (credential stuffing prevention)
 
 Usage:
     from shadowwatch import ShadowWatch
     
-    sw = ShadowWatch(
-        database_url="postgresql://...",
-        license_key="SW-XXXX-XXXX-XXXX-XXXX"  # Get trial key from shadowwatch.dev
-    )
+    # Free tier (no license needed)
+    sw = ShadowWatch(database_url="postgresql://...")
     
     # Track activity
     await sw.track(user_id=123, entity_id="AAPL", action="view")
@@ -24,17 +27,19 @@ Usage:
     # Get user profile
     profile = await sw.get_profile(user_id=123)
     
-    # Verify login (trust score)
-    trust = await sw.verify_login(
-        user_id=123,
-        request_context={"ip": "...", "device_fingerprint": "..."}
+    # Pro tier (requires license)
+    sw = ShadowWatch(
+        database_url="postgresql://...",
+        license_key="SW-PRO-XXXX-XXXX-XXXX-XXXX"  
     )
+    continuity = await sw.calculate_continuity("user_123")
 """
 
-__version__ = "0.1.0"
+__version__ = "2.0.0"
 __author__ = "Tanishq"
 __license__ = "MIT"
 
 from shadowwatch.main import ShadowWatch
+from shadowwatch.exceptions import LicenseError
 
-__all__ = ["ShadowWatch"]
+__all__ = ["ShadowWatch", "LicenseError"]
