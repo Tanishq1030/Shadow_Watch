@@ -11,7 +11,7 @@ Endpoints:
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from datetime import datetime, timedelta
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
 import secrets
 import hmac
 import hashlib
@@ -71,7 +71,7 @@ def generate_license_key(prefix: str = "SW-INV-v1") -> str:
     return f"{prefix}-{secrets.token_hex(12)}"
 
 
-def sign_offline_payload(payload: dict) -> tuple[str, str]:
+def sign_offline_payload(payload: dict) -> Tuple[str, str]:
     """
     Sign payload for offline validation
     
