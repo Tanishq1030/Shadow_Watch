@@ -349,7 +349,11 @@ class ShadowWatch:
         Raises:
             LicenseError: If Pro features not enabled
         """
-        if not self._pro_enabled:
+        # Validate license
+        await self._ensure_license()
+        
+        # Verify license is Invariant tier
+        if not self._license_key or not self._license_key.startswith("SW-INV-"):
             raise LicenseError(
                 "calculate_continuity() requires Shadow Watch Invariant.\n\n"
                 "To use this feature:\n"
@@ -362,7 +366,11 @@ class ShadowWatch:
                 "   )"
             )
         
-        return await self._pro.calculate_continuity(subject_id, context)
+        # Calculate continuity using integration module
+        from shadowwatch.invariant.integration import calculate_continuity_impl
+        
+        async with self.AsyncSessionLocal() as db:
+            return await calculate_continuity_impl(db, subject_id, context)
     
     async def detect_divergence(
         self,
