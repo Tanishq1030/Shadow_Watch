@@ -7,6 +7,7 @@ Separated for code organization and to avoid bloating main.py.
 
 from typing import Dict, Optional
 import time
+from sqlalchemy import text
 
 from shadowwatch.invariant import (
     InvariantState,
@@ -38,7 +39,7 @@ async def calculate_continuity_impl(
     """
     # 1. Load or create InvariantState
     result = await db_session.execute(
-        "SELECT * FROM invariant_state WHERE user_id = :user_id",
+        text("SELECT * FROM invariant_state WHERE user_id = :user_id"),
         {"user_id": subject_id}
     )
     row = result.fetchone()
@@ -56,13 +57,13 @@ async def calculate_continuity_impl(
     
     # 2. Fetch recent events (last 100 for feature extraction)
     events_result = await db_session.execute(
-        """
+        text("""
         SELECT timestamp, action, entity_id
         FROM activities
         WHERE user_id = :user_id
         ORDER BY timestamp DESC
         LIMIT 100
-        """,
+        """),
         {"user_id": subject_id}
     )
     events = [
@@ -127,7 +128,7 @@ async def calculate_continuity_impl(
     if row:
         # Update existing
         await db_session.execute(
-            """
+            text("""
             UPDATE invariant_state
             SET baseline_vector = :baseline_vector,
                 baseline_variance = :baseline_variance,
@@ -136,7 +137,7 @@ async def calculate_continuity_impl(
                 continuity_confidence = :continuity_confidence,
                 last_seen_at = :last_seen_at
             WHERE user_id = :user_id
-            """,
+            """),
             {
                 "user_id": subject_id,
                 "baseline_vector": state.baseline_vector.tolist(),
@@ -150,7 +151,7 @@ async def calculate_continuity_impl(
     else:
         # Insert new
         await db_session.execute(
-            """
+            text("""
             INSERT INTO invariant_state (
                 user_id, created_at, last_seen_at,
                 baseline_vector, baseline_variance, sample_count,
@@ -160,7 +161,7 @@ async def calculate_continuity_impl(
                 :baseline_vector, :baseline_variance, :sample_count,
                 :continuity_score, :continuity_confidence
             )
-            """,
+            """),
             {
                 "user_id": subject_id,
                 "created_at": state.created_at,
@@ -175,7 +176,7 @@ async def calculate_continuity_impl(
     
     # 11. Log to continuity_history
     await db_session.execute(
-        """
+        text("""
         INSERT INTO continuity_history (
             user_id, continuity_score, confidence,
             distance, decay_factor, sample_count
@@ -183,7 +184,7 @@ async def calculate_continuity_impl(
             :user_id, :continuity_score, :confidence,
             :distance, :decay_factor, :sample_count
         )
-        """,
+        """),
         {
             "user_id": subject_id,
             "continuity_score": state.continuity_score,
