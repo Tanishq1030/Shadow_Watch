@@ -174,8 +174,12 @@ async def validate_license(req: ValidateLicenseRequest):
     license_key = req.license_key
     
     # Check cache first
-    cached = await redis_kv.get(f"license:{license_key}")
-    if cached:
+    cached_str = await redis_kv.get(f"license:{license_key}")
+    if cached_str:
+        # Parse JSON string from Redis
+        import json
+        cached = json.loads(cached_str)
+        
         # Verify not expired
         expires_at = datetime.fromisoformat(cached["expires_at"])
         if datetime.utcnow() > expires_at:
