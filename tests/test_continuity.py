@@ -20,20 +20,29 @@ async def main():
     print("🧪 Testing calculate_continuity() - Invariant Tier")
     print("=" * 60)
     
-    # Initialize with Invariant license (using SQLite for local testing)
+    # PostgreSQL connection (Supabase)
+    # Using direct connection for asyncpg (pooler causes connection issues)
+    DATABASE_URL = "postgresql+asyncpg://postgres.lsfrdfpfeysbgifqrxir:Tanishq@2004@aws-0-ap-south-1.pooler.supabase.com:5432/postgres"
+    
+    # Initialize with Invariant license
     sw = ShadowWatch(
-        database_url="sqlite+aiosqlite:///./test_continuity.db",
+        database_url=DATABASE_URL,
         license_key="SW-INV-v1-0c88265cc432fbba7c0c5b51",
         license_server_url="https://shadow-watch-ten.vercel.app"
     )
     
-    print("\n✅ ShadowWatch initialized with Invariant license (SQLite)")
+    print("\n✅ ShadowWatch initialized with Invariant license (PostgreSQL)")
+    print("   Database: Supabase PostgreSQL")
     print("   License Server: https://shadow-watch-ten.vercel.app")
     
-    # Initialize database
+    # Initialize database (creates free tier tables only)
     print("\n📊 Initializing database...")
     await sw.init_database()
     print("✅ Database initialized")
+    
+    # Note: Invariant tables should be created via migration:
+    # Run: shadowwatch/storage/migrations/003_invariant_tables.sql on Supabase
+    # This test assumes the migration has already been run
     
     # Create test user with some activity
     test_user = "test_user_continuity_001"

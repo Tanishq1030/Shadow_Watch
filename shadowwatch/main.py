@@ -85,17 +85,15 @@ class ShadowWatch:
         self._license_key = license_key
         self.license_server_url = license_server_url
         
-        # Guardrail: Warn against SQLite async in production
-        if "sqlite+aiosqlite" in database_url.lower():
-            import warnings
-            warnings.warn(
-                "\n"
-                "⚠️  SQLite async is supported for demos/testing only.\n"
-                "   Schema propagation across async connections is unreliable.\n"
-                "   For production, use PostgreSQL or MySQL.\n"
-                "   See: https://github.com/Tanishq1030/Shadow_Watch#database-requirements",
-                UserWarning,
-                stacklevel=2
+        # Enforce PostgreSQL requirement
+        if "postgresql" not in database_url.lower() and "postgres" not in database_url.lower():
+            raise ValueError(
+                "Shadow Watch requires PostgreSQL.\n\n"
+                "SQLite is not supported due to incompatible features (TIMESTAMPTZ, JSONB, triggers).\n\n"
+                "Use PostgreSQL or managed services like Supabase:\n"
+                "  database_url='postgresql+asyncpg://user:pass@host:5432/dbname'\n\n"
+                "For local development, use Docker:\n"
+                "  docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=password postgres:15"
             )
         
         # Create async engine with proper connection args
