@@ -1,8 +1,8 @@
 # License Server Requirements (Vercel Serverless)
 
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-pydantic>=2.5.0
-supabase>=2.3.0
-redis>=5.0.0
-httpx>=0.25.0
+fastapi
+uvicorn[standard]
+pydantic
+supabase
+redis
+httpx
