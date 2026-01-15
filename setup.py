@@ -29,6 +29,7 @@ setup(
     install_requires=[
         "sqlalchemy>=2.0.0",
         "httpx>=0.25.0",
+        "numpy>=1.24.0",  # For Invariant tier mathematical functions
     ],
     extras_require={
         "dev": [
