@@ -33,12 +33,20 @@ async def verify_license_key(
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.post(
-                f"{license_server_url}/verify",
-                json={"key": license_key}
+                f"{license_server_url}/api/v1/license/validate",
+                json={"license_key": license_key}
             )
             
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                # Map server response to expected format
+                return {
+                    "valid": data.get("valid", False),
+                    "tier": data.get("license_type", "unknown").lower(),
+                    "customer": "valued_customer",  # Server doesn't return this yet
+                    "expires_at": data.get("expires_at", ""),
+                    "max_events": 100000  # Default for Invariant tier
+                }
             else:
                 return {
                     "valid": False,
