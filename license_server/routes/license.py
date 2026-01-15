@@ -90,7 +90,7 @@ async def create_invariant_license(req: InvariantLicenseRequest):
                 "is_revoked": False,
                 "user_id": req.user_id
             },
-            ttl=86400  # 24 hours
+            ex=86400  # 24 hours
         )
         
         return {
@@ -147,7 +147,7 @@ async def create_enterprise_license(req: EnterpriseLicenseRequest):
                 "is_revoked": False,
                 "capabilities": req.capabilities
             },
-            ttl=86400
+            ex=86400
         )
         
         return {
@@ -218,7 +218,7 @@ async def validate_license(req: ValidateLicenseRequest):
                 "expires_at": license_data["expires_at"],
                 "is_revoked": license_data["is_revoked"]
             },
-            ttl=86400
+            ex=86400
         )
         
         return {
