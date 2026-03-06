@@ -16,7 +16,6 @@ async def main():
     # Initialize Shadow Watch (local dev mode, no license)
     sw = ShadowWatch(
         database_url="sqlite+aiosqlite:///./ecommerce_demo.db",
-        license_key=None  # Local dev mode - 1000 events free
     )
     
     # Initialize database

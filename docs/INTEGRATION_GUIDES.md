@@ -1,4 +1,4 @@
-# Shadow Watch - Integration Guides
+﻿# Shadow Watch — Integration Guides
 
 Step-by-step guides for integrating Shadow Watch into popular Python frameworks.
 
@@ -10,6 +10,7 @@ Step-by-step guides for integrating Shadow Watch into popular Python frameworks.
 - [Django Integration](#django-integration)
 - [Flask Integration](#flask-integration)
 - [General Python Application](#general-python-application)
+- [Production Checklist](#production-checklist)
 
 ---
 
@@ -27,25 +28,27 @@ pip install shadowwatch[fastapi]
 
 ```python
 # main.py
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request
 from shadowwatch import ShadowWatch
 from shadowwatch.integrations.fastapi import ShadowWatchMiddleware
 import os
 
 app = FastAPI()
 
-# Initialize Shadow Watch
 sw = ShadowWatch(
     database_url=os.getenv("DATABASE_URL"),
-    license_key=os.getenv("SHADOWWATCH_LICENSE_KEY"),
-    redis_url=os.getenv("REDIS_URL")  # Production only
+    redis_url=os.getenv("REDIS_URL")  # Optional — for multi-instance deployments
 )
 
-# Add middleware for automatic tracking
+@app.on_event("startup")
+async def startup():
+    await sw.init_database()
+
+# Auto-track all authenticated requests
 app.add_middleware(
     ShadowWatchMiddleware,
     shadowwatch=sw,
-    extract_user_id=lambda request: getattr(request.state, 'user_id', None),
+    extract_user_id=lambda request: getattr(request.state, "user_id", None),
     extract_entity_id=lambda request: request.path_params.get("symbol"),
     extract_action=lambda request: request.method.lower()
 )
@@ -54,24 +57,18 @@ app.add_middleware(
 **3. Add authentication middleware:**
 
 ```python
-from fastapi import HTTPException
 import jwt
 
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
-    # Extract JWT token
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    
     if token:
         try:
-            # Decode JWT
             payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
             request.state.user_id = payload.get("user_id")
         except jwt.InvalidTokenError:
             pass
-    
-    response = await call_next(request)
-    return response
+    return await call_next(request)
 ```
 
 **4. Your routes now auto-track:**
@@ -79,48 +76,38 @@ async def auth_middleware(request: Request, call_next):
 ```python
 @app.get("/stocks/{symbol}")
 async def get_stock(symbol: str):
-    # Shadow Watch automatically tracks:
-    # - user_id (from request.state.user_id)
-    # - entity_id (symbol)
-    # - action ("get")
-    
+    # Shadow Watch silently tracks: user_id, symbol, "get"
     return {"symbol": symbol, "price": 185.20}
 ```
 
 ---
 
-### Advanced: Custom Tracking
-
-**For routes that need custom tracking logic:**
+### Custom Tracking with Metadata
 
 ```python
 from fastapi import Depends
 
-def get_shadowwatch():
+def get_sw():
     return sw
 
 @app.post("/trades")
 async def create_trade(
-    trade_data: TradeData,
+    trade: TradeData,
     request: Request,
-    sw: ShadowWatch = Depends(get_shadowwatch)
+    sw: ShadowWatch = Depends(get_sw)
 ):
-    # Custom tracking with metadata
     await sw.track(
         user_id=request.state.user_id,
-        entity_id=trade_data.symbol,
+        entity_id=trade.symbol,
         action="trade",
         metadata={
-            "side": trade_data.side,
-            "quantity": trade_data.quantity,
-            "price": trade_data.price,
-            "total": trade_data.quantity * trade_data.price
+            "side": trade.side,
+            "quantity": trade.quantity,
+            "price": trade.price,
+            "total": trade.quantity * trade.price
         }
     )
-    
-    # Execute trade
-    result = execute_trade(trade_data)
-    return result
+    return execute_trade(trade)
 ```
 
 ---
@@ -130,44 +117,29 @@ async def create_trade(
 ```python
 @app.post("/auth/login")
 async def login(credentials: LoginCredentials, request: Request):
-    # Verify username/password
-    user = authenticate(credentials.username, credentials.password)
+    user = await authenticate(credentials.username, credentials.password)
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    # Check behavioral trust score
+        raise HTTPException(401, "Invalid credentials")
+
     trust = await sw.verify_login(
         user_id=user.id,
         request_context={
             "ip": request.client.host,
             "user_agent": request.headers.get("user-agent"),
             "device_fingerprint": request.cookies.get("device_fp"),
-            "library_fingerprint": credentials.fingerprint  # From client cache
         }
     )
-    
-    # Handle based on trust score
+
     if trust["action"] == "allow":
-        # Generate JWT token
-        token = generate_jwt(user.id)
-        return {"success": True, "token": token}
-    
+        return {"token": generate_jwt(user.id)}
+
     elif trust["action"] == "require_mfa":
-        # Request 2FA
         send_mfa_code(user.id)
-        return {
-            "success": False,
-            "require_mfa": True,
-            "message": "Please enter the code sent to your phone"
-        }
-    
-    else:  # "block"
-        # Deny login + alert user
+        return {"require_mfa": True, "message": "Check your phone"}
+
+    else:  # block
         send_security_alert(user.id, request.client.host)
-        raise HTTPException(
-            status_code=403,
-            detail="Suspicious login attempt detected"
-        )
+        raise HTTPException(403, "Suspicious login attempt detected")
 ```
 
 ---
@@ -176,13 +148,13 @@ async def login(credentials: LoginCredentials, request: Request):
 
 ### Basic Setup (10 Minutes)
 
-**1. Install Shadow Watch:**
+**1. Install:**
 
 ```bash
 pip install shadowwatch
 ```
 
-**2. Add to Django settings:**
+**2. Add to settings:**
 
 ```python
 # settings.py
@@ -190,23 +162,25 @@ import os
 
 SHADOWWATCH_CONFIG = {
     'DATABASE_URL': os.getenv('DATABASE_URL'),
-    'LICENSE_KEY': os.getenv('SHADOWWATCH_LICENSE_KEY'),
-    'REDIS_URL': os.getenv('REDIS_URL'),  # Production only
+    'REDIS_URL': os.getenv('REDIS_URL'),  # Optional
 }
 ```
 
-**3. Create Shadow Watch instance:**
+**3. Create a shared instance:**
 
 ```python
 # shadowwatch_instance.py
 from shadowwatch import ShadowWatch
 from django.conf import settings
+import asyncio
 
 sw = ShadowWatch(
     database_url=settings.SHADOWWATCH_CONFIG['DATABASE_URL'],
-    license_key=settings.SHADOWWATCH_CONFIG['LICENSE_KEY'],
     redis_url=settings.SHADOWWATCH_CONFIG.get('REDIS_URL')
 )
+
+# Initialize tables (run once)
+asyncio.run(sw.init_database())
 ```
 
 **4. Create Django middleware:**
@@ -219,50 +193,34 @@ import asyncio
 class ShadowWatchMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
-    
+
     def __call__(self, request):
-        # Track activity if user is authenticated
         if request.user.is_authenticated:
-            # Extract entity ID from URL
             entity_id = self._extract_entity_id(request)
-            
             if entity_id:
-                # Track asynchronously (don't block request)
                 asyncio.create_task(
                     sw.track(
                         user_id=request.user.id,
                         entity_id=entity_id,
                         action=request.method.lower(),
-                        metadata={
-                            'path': request.path,
-                            'ip': self._get_client_ip(request)
-                        }
+                        metadata={"path": request.path}
                     )
                 )
-        
-        response = self.get_response(request)
-        return response
-    
+        return self.get_response(request)
+
     def _extract_entity_id(self, request):
-        # Example: /stocks/AAPL/ → "AAPL"
-        path_parts = request.path.strip('/').split('/')
-        if len(path_parts) >= 2 and path_parts[0] == 'stocks':
-            return path_parts[1]
+        parts = request.path.strip('/').split('/')
+        if len(parts) >= 2 and parts[0] in ('stocks', 'products', 'items'):
+            return parts[1]
         return None
-    
-    def _get_client_ip(self, request):
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            return x_forwarded_for.split(',')[0]
-        return request.META.get('REMOTE_ADDR')
 ```
 
-**5. Add middleware to settings:**
+**5. Register middleware:**
 
 ```python
 # settings.py
 MIDDLEWARE = [
-    # ... other middleware
+    # ... existing middleware
     'middleware.shadowwatch_middleware.ShadowWatchMiddleware',
 ]
 ```
@@ -273,30 +231,21 @@ MIDDLEWARE = [
 # views.py
 from shadowwatch_instance import sw
 from django.http import JsonResponse
-import asyncio
 
 async def trade_view(request):
-    if request.method == 'POST':
-        # Parse trade data
-        symbol = request.POST.get('symbol')
-        quantity = int(request.POST.get('quantity'))
-        price = float(request.POST.get('price'))
-        
-        # Track trade
-        await sw.track(
-            user_id=request.user.id,
-            entity_id=symbol,
-            action='trade',
-            metadata={
-                'quantity': quantity,
-                'price': price,
-                'total': quantity * price
-            }
-        )
-        
-        # Execute trade
-        result = execute_trade(request.user, symbol, quantity, price)
-        return JsonResponse(result)
+    symbol = request.POST.get('symbol')
+    quantity = int(request.POST.get('quantity'))
+    price = float(request.POST.get('price'))
+
+    await sw.track(
+        user_id=request.user.id,
+        entity_id=symbol,
+        action='trade',
+        metadata={'quantity': quantity, 'price': price}
+    )
+
+    result = execute_trade(request.user, symbol, quantity, price)
+    return JsonResponse(result)
 ```
 
 ---
@@ -305,294 +254,204 @@ async def trade_view(request):
 
 ### Basic Setup (10 Minutes)
 
-**1. Install Shadow Watch:**
+**1. Install:**
 
 ```bash
 pip install shadowwatch
 ```
 
-**2. Initialize in your app:**
+**2. Initialize:**
 
 ```python
 # app.py
-from flask import Flask, request, g
+from flask import Flask, request, g, session
 from shadowwatch import ShadowWatch
-import os
-import asyncio
+import os, asyncio
 
 app = Flask(__name__)
 
-# Initialize Shadow Watch
 sw = ShadowWatch(
     database_url=os.getenv("DATABASE_URL"),
-    license_key=os.getenv("SHADOWWATCH_LICENSE_KEY"),
-    redis_url=os.getenv("REDIS_URL")  # Production only
+    redis_url=os.getenv("REDIS_URL")
 )
+
+asyncio.run(sw.init_database())
 ```
 
-**3. Create before_request hook:**
+**3. Track via hooks:**
 
 ```python
 @app.before_request
-def before_request():
-    # Store user ID in g object
-    if 'user_id' in session:
-        g.user_id = session['user_id']
-    else:
-        g.user_id = None
-```
+def set_user():
+    g.user_id = session.get('user_id')
 
-**4. Create after_request hook for tracking:**
-
-```python
 @app.after_request
-def after_request(response):
-    # Track activity if user is authenticated
-    if g.user_id and request.endpoint:
-        # Extract entity ID from URL
-        entity_id = request.view_args.get('symbol') if request.view_args else None
-        
+def track_activity(response):
+    if g.get('user_id') and request.view_args:
+        entity_id = request.view_args.get('symbol')
         if entity_id:
-            # Track asynchronously
-            asyncio.run(
-                sw.track(
-                    user_id=g.user_id,
-                    entity_id=entity_id,
-                    action=request.method.lower(),
-                    metadata={
-                        'endpoint': request.endpoint,
-                        'ip': request.remote_addr
-                    }
+            try:
+                asyncio.run(
+                    sw.track(
+                        user_id=g.user_id,
+                        entity_id=entity_id,
+                        action=request.method.lower()
+                    )
                 )
-            )
-    
+            except Exception:
+                pass  # Never block the response
     return response
 ```
 
-**5. Manual tracking in routes:**
+**4. Routes:**
 
 ```python
 @app.route('/stocks/<symbol>')
 def get_stock(symbol):
-    # Automatic tracking via after_request hook
-    
-    return {
-        "symbol": symbol,
-        "price": 185.20
-    }
+    # Auto-tracked via after_request
+    return {"symbol": symbol, "price": 185.20}
 
 @app.route('/trades', methods=['POST'])
 def create_trade():
     data = request.get_json()
-    
-    # Manual tracking with metadata
     asyncio.run(
         sw.track(
             user_id=g.user_id,
             entity_id=data['symbol'],
             action='trade',
-            metadata={
-                'side': data['side'],
-                'quantity': data['quantity'],
-                'price': data['price']
-            }
+            metadata={'side': data['side'], 'quantity': data['quantity']}
         )
     )
-    
-    # Execute trade
-    result = execute_trade(data)
-    return result
+    return execute_trade(data)
 ```
 
 ---
 
 ## General Python Application
 
-### For Non-Web Applications
-
-**Use Shadow Watch directly without middleware:**
+For scripts, CLIs, and non-web applications:
 
 ```python
-# main.py
-import asyncio
+import asyncio, os
 from shadowwatch import ShadowWatch
-import os
 
-# Initialize
-sw = ShadowWatch(
-    database_url=os.getenv("DATABASE_URL"),
-    license_key=os.getenv("SHADOWWATCH_LICENSE_KEY")
-)
+sw = ShadowWatch(database_url=os.getenv("DATABASE_URL"))
 
 async def main():
+    await sw.init_database()
+
     user_id = 123
-    
-    # User views portfolio
+
     await sw.track(user_id=user_id, entity_id="PORTFOLIO", action="view")
-    
-    # User searches for tech stocks
-    await sw.track(
-        user_id=user_id,
-        entity_id="TECH_STOCKS",
-        action="search",
-        metadata={"query": "tech stocks"}
-    )
-    
-    # User executes trade
+    await sw.track(user_id=user_id, entity_id="AAPL", action="search")
     await sw.track(
         user_id=user_id,
         entity_id="AAPL",
         action="trade",
         metadata={"quantity": 10, "price": 185.20}
     )
-    
-    # Get user profile
-    profile = await sw.get_profile(user_id=user_id)
-    print(f"User has {profile['total_items']} interests")
-    print(f"Top interest: {profile['library'][0]['entity_id']}")
 
-if __name__ == "__main__":
-    asyncio.run(main())
+    profile = await sw.get_profile(user_id=user_id)
+    print(f"User has {profile['total_items']} tracked interests")
+
+    continuity = await sw.calculate_continuity(str(user_id))
+    print(f"Continuity score: {continuity['score']} ({continuity['state']})")
+
+asyncio.run(main())
 ```
 
 ---
 
 ## Production Checklist
 
-### Before Deploying to Production
+### Before Deploying
 
-- [ ] Use environment variables for credentials
-- [ ] Enable Redis for multi-instance deployments
-- [ ] Set up database indexes (see API Reference)
-- [ ] Configure logging level (`INFO` or `WARNING`)
-- [ ] Test license verification works
-- [ ] Test behavioral fingerprinting works
-- [ ] Monitor database query performance
-- [ ] Set up error alerts (Sentry, etc.)
-- [ ] Document internal deployment process
-- [ ] Train team on Shadow Watch concepts
-
----
+- [ ] `DATABASE_URL` set via environment variable (never hardcoded)
+- [ ] `await sw.init_database()` called on startup
+- [ ] `REDIS_URL` configured for multi-instance / multi-worker setups
+- [ ] Database indexes created (see [API Reference](./API_REFERENCE.md#recommended-database-indexes))
+- [ ] Logging level set (`INFO` or `WARNING`)
+- [ ] Tracking wrapped in `try/except` — Shadow Watch must never crash your app
+- [ ] `verify_login()` integrated at login endpoints for ATO protection
+- [ ] GDPR: `export_user_data()` and `delete_user()` endpoints wired up
 
 ### Environment Variables
 
 ```bash
 # Required
-SHADOWWATCH_LICENSE_KEY=SW-PROD-XXXX-XXXX-XXXX-XXXX
-DATABASE_URL=postgresql+asyncpg://user:pass@host:port/dbname
+DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/dbname
 
-# Recommended for production
+# Recommended for production (multi-instance)
 REDIS_URL=redis://localhost:6379
 
 # Optional
 SHADOWWATCH_LOG_LEVEL=INFO
 ```
 
----
-
-### Database Migrations
-
-**For SQLAlchemy:**
-
-```python
-from shadowwatch.models import Base
-from sqlalchemy import create_engine
-
-engine = create_engine(database_url.replace('+asyncpg', ''))  # Sync engine
-Base.metadata.create_all(engine)
-```
-
-**For Alembic:**
+### Database Migrations (Alembic)
 
 ```bash
-# Generate migration
 alembic revision --autogenerate -m "Add Shadow Watch tables"
-
-# Apply migration
 alembic upgrade head
 ```
 
----
-
-### Performance Tuning
-
-**1. Database Indexes:**
-
-```sql
-CREATE INDEX idx_activity_user_id ON shadow_watch_activity_events(user_id);
-CREATE INDEX idx_activity_created_at ON shadow_watch_activity_events(created_at);
-CREATE INDEX idx_interests_user_id ON shadow_watch_interests(user_id);
-CREATE INDEX idx_interests_score ON shadow_watch_interests(score DESC);
-```
-
-**2. Redis Configuration:**
-
-```bash
-# In production, increase max memory
-maxmemory 512mb
-maxmemory-policy allkeys-lru
-```
-
-**3. Connection Pooling:**
+### Connection Pooling (High Traffic)
 
 ```python
 from sqlalchemy.pool import QueuePool
+from sqlalchemy.ext.asyncio import create_async_engine
 
 engine = create_async_engine(
-    database_url,
+    os.getenv("DATABASE_URL"),
     poolclass=QueuePool,
     pool_size=20,
     max_overflow=10
 )
 ```
 
+### Redis Configuration (Production)
+
+```bash
+maxmemory 512mb
+maxmemory-policy allkeys-lru
+```
+
 ---
 
 ## Troubleshooting
 
-### Common Issues
+**`RuntimeError: This event loop is already running`**
 
-**1. "AsyncIO event loop is already running"**
-
-**Solution:** Use `asyncio.create_task()` instead of `asyncio.run()`
+Use `asyncio.create_task()` instead of `asyncio.run()` inside async contexts:
 
 ```python
-# ❌ DON'T
+# ❌ Inside async context
 asyncio.run(sw.track(...))
 
-# ✅ DO
+# ✅ Inside async context
 asyncio.create_task(sw.track(...))
 ```
 
----
+**`Redis connection refused`**
 
-**2. "License verification failed"**
-
-**Solution:** Check network connectivity to license server
-
-```bash
-curl https://shadow-watch-three.vercel.app/verify
-```
-
----
-
-**3. "Redis connection refused"**
-
-**Solution:** Either remove `redis_url` (use memory) or start Redis:
+Remove `redis_url` to use in-memory cache (fine for single instance), or start Redis:
 
 ```bash
 docker run -d -p 6379:6379 redis:7-alpine
 ```
 
+**`UndefinedTableError`**
+
+You haven't called `await sw.init_database()` yet.
+
 ---
 
 ## Support
 
-- **Documentation:** https://github.com/Tanishq1030/Shadow_Watch
+- **GitHub:** https://github.com/Tanishq1030/Shadow_Watch
 - **Issues:** https://github.com/Tanishq1030/Shadow_Watch/issues
 - **Email:** tanishqdasari2004@gmail.com
 
 ---
 
-**Last Updated:** January 11, 2026  
-**Version:** 0.1.0
+**Version:** 2.0.0 — Free and open source (MIT)

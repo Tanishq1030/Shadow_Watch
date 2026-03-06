@@ -3,7 +3,7 @@ End-to-End Client Test for Shadow Watch
 
 Tests the complete workflow from a client's perspective:
 1. Install Shadow Watch from PyPI
-2. Initialize with license key
+2. Initialize (no license key needed)
 3. Create database tables
 4. Track user activity
 5. Get user profile
@@ -40,23 +40,12 @@ async def test_shadowwatch():
     
     # Step 2: Initialize
     print("🔧 Step 2: Initializing Shadow Watch...")
-    database_url = "sqlite+aiosqlite:///./test_shadowwatch.db"
-    license_key = os.getenv("SHADOWWATCH_LICENSE_KEY", "SW-TRIAL-XXXX-XXXX-XXXX-XXXX")
-    
-    if license_key == "SW-TRIAL-XXXX-XXXX-XXXX-XXXX":
-        print("⚠️  WARNING: Using placeholder license key.")
-        print("   Set SHADOWWATCH_LICENSE_KEY environment variable or email:")
-        print("   tanishqdasari2004@gmail.com for trial key")
-        print()
+    database_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:password@localhost:5432/shadowwatch_test")
     
     try:
-        sw = ShadowWatch(
-            database_url=database_url,
-            license_key=license_key
-        )
+        sw = ShadowWatch(database_url=database_url)
         print(f"✅ Shadow Watch initialized")
-        print(f"   Database: {database_url}")
-        print(f"   License: {license_key[:15]}...")
+        print(f"   Database: {database_url.split('@')[-1] if '@' in database_url else database_url}")
     except Exception as e:
         print(f"❌ Failed to initialize: {e}")
         return False
@@ -214,9 +203,8 @@ async def test_shadowwatch():
     print("  ✅ Library management (pin/unpin)")
     print()
     print("Next steps:")
-    print("  1. Get a real trial license: tanishqdasari2004@gmail.com")
-    print("  2. Integrate Shadow Watch into your application")
-    print("  3. Deploy to production with PostgreSQL + Redis")
+    print("  1. Integrate Shadow Watch into your application")
+    print("  2. Deploy to production with PostgreSQL + Redis")
     print()
     print("Documentation:")
     print("  - Getting Started: docs/GETTING_STARTED.md")

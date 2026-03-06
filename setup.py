@@ -5,16 +5,16 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="shadowwatch",
-    version="1.0.0",
+    version="2.0.0",
     author="Tanishq Dasari",
     author_email="tanishqdasari2004@gmail.com",
-    description="Behavioral intelligence for your application - passive biometrics, fraud detection, personalization",
+    description="Behavioral intelligence for your application - passive biometrics, fraud detection, personalization. Fully free and open source.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/Tanishq1030/Shadow_Watch",
     packages=find_packages(),
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "Topic :: Security",
         "Topic :: Software Development :: Libraries :: Python Modules",
@@ -28,8 +28,7 @@ setup(
     python_requires=">=3.9",
     install_requires=[
         "sqlalchemy>=2.0.0",
-        "httpx>=0.25.0",
-        "numpy>=1.24.0",  # For Invariant tier mathematical functions
+        "numpy>=1.24.0",
     ],
     extras_require={
         "dev": [
@@ -42,7 +41,7 @@ setup(
             "redis>=5.0.0",
         ],
     },
-    keywords="behavioral biometrics fraud-detection security personalization fintech",
+    keywords="behavioral biometrics fraud-detection ato-detection security personalization fintech open-source",
     project_urls={
         "Bug Reports": "https://github.com/Tanishq1030/Shadow_Watch/issues",
         "Source": "https://github.com/Tanishq1030/Shadow_Watch",

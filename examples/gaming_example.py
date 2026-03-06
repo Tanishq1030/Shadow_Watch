@@ -16,7 +16,6 @@ async def main():
     # Initialize Shadow Watch
     sw = ShadowWatch(
         database_url="sqlite+aiosqlite:///./gaming_demo.db",
-        license_key=None
     )
     
     await sw.init_database()

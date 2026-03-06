@@ -20,7 +20,6 @@ async def main():
     print("🌑 Initializing Shadow Watch...")
     sw = ShadowWatch(
         database_url="sqlite+aiosqlite:///./shadow_watch_demo.db",
-        license_key="SW-TRIAL-0001-2026-A1B2"  # Replace with your trial key
     )
     print("✅ Shadow Watch initialized\n")
     

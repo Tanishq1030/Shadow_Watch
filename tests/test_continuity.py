@@ -1,8 +1,7 @@
 """
 Test calculate_continuity() implementation
 
-This script tests the Invariant tier calculate_continuity() method
-with our generated license key.
+Tests the freely available calculate_continuity() method.
 """
 
 import asyncio
@@ -17,23 +16,25 @@ from shadowwatch import ShadowWatch
 
 
 async def main():
-    print("🧪 Testing calculate_continuity() - Invariant Tier")
+    print("🧪 Testing calculate_continuity()")
     print("=" * 60)
     
-    # Initialize with Invariant license (using SQLite for local testing)
-    sw = ShadowWatch(
-        database_url="sqlite+aiosqlite:///./test_continuity.db",
-        license_key="SW-INV-v1-0c88265cc432fbba7c0c5b51",
-        license_server_url="https://shadow-watch-ten.vercel.app"
-    )
+    # PostgreSQL connection (local)
+    DATABASE_URL = "postgresql+asyncpg://postgres:password@localhost:5432/shadowwatch_test"
     
-    print("\n✅ ShadowWatch initialized with Invariant license (SQLite)")
-    print("   License Server: https://shadow-watch-ten.vercel.app")
+    # Initialize ShadowWatch
+    sw = ShadowWatch(database_url=DATABASE_URL)
     
-    # Initialize database
+    print("\n✅ ShadowWatch initialized (PostgreSQL)")
+    
+    # Initialize database (creates free tier tables only)
     print("\n📊 Initializing database...")
     await sw.init_database()
     print("✅ Database initialized")
+    
+    # Note: Invariant tables should be created via migration:
+    # Run: shadowwatch/storage/migrations/003_invariant_tables.sql on Supabase
+    # This test assumes the migration has already been run
     
     # Create test user with some activity
     test_user = "test_user_continuity_001"

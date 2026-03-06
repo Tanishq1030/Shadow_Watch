@@ -1,139 +1,98 @@
-# Shadow Watch - Repository Structure
-
-## Clean, Production-Ready Organization
+# Shadow Watch — Repository Structure
 
 ```
-shadow_watch/
+Shadow_Watch/
 │
-├── shadowwatch/                 # Main package
-│   ├── __init__.py
-│   ├── main.py                 # ShadowWatch class
-│   ├── models/                 # SQLAlchemy models
-│   ├── core/                   # Core algorithms
-│   ├── utils/                  # Utilities (validators, cache, license)
-│   └── integrations/           # Framework integrations (FastAPI, etc.)
+├── shadowwatch/                 # Core Python package (pip install shadowwatch)
+│   ├── __init__.py              # Public API surface
+│   ├── main.py                  # ShadowWatch class
+│   ├── exceptions.py            # Custom exceptions
+│   ├── models/                  # SQLAlchemy ORM models
+│   ├── core/                    # Core algorithms (fingerprinting, entropy, continuity)
+│   ├── utils/                   # Input validators, cache helpers
+│   └── integrations/            # Framework integrations
+│       └── fastapi.py           # FastAPI middleware
 │
-├── license_server/             # License server (Vercel deployment)
-│   ├── main.py
-│   ├── kv_store.py
-│   └── vercel.json
+├── examples/                    # Ready-to-run usage examples
+│   ├── fastapi_example.py       # Full FastAPI integration
+│   ├── ecommerce_example.py     # E-commerce use case
+│   ├── gaming_example.py        # Gaming platform use case
+│   ├── social_media_example.py  # Social media use case
+│   ├── standalone_usage.py      # Direct Python usage
+│   └── README.md                # Examples overview
 │
-├── examples/                   # Industry examples
-│   ├── ecommerce_example.py
-│   ├── gaming_example.py
-│   ├── social_media_example.py
-│   └── README.md
+├── tests/                       # Test suite
+│   ├── test_simple.py           # PostgreSQL smoke test
+│   ├── test_local_dev.py        # Local dev / no-Redis setup
+│   ├── test_production.py       # Production PostgreSQL tests
+│   ├── test_continuity.py       # ATO / continuity algorithm tests
+│   ├── test_day1_refactoring.py # Feature availability tests
+│   ├── test_day1_simple.py      # Basic feature tests
+│   ├── test_client_integration.py  # End-to-end client flow
+│   ├── verify_package.py        # Package import sanity check
+│   └── README.md                # Test suite overview
 │
-├── tests/                      # Test suite
-│   ├── test_validators.py     # Validator tests (no DB required)
-│   ├── test_client_integration.py  # E2E client flow test
-│   ├── test_local_dev.py      # Local dev mode test
-│   ├── test_production.py     # Production mode test
-│   └── README.md
+├── docs/                        # Markdown documentation
+│   ├── GETTING_STARTED.md       # 5-minute setup guide
+│   ├── API_REFERENCE.md         # Complete API reference
+│   ├── api-reference.md         # Quick API reference (single page)
+│   └── INTEGRATION_GUIDES.md    # FastAPI, Django, Flask guides
 │
-├── docs/                       # Documentation
-│   ├── index.html              # GitHub Pages landing
-│   ├── API_REFERENCE.md
-│   ├── GETTING_STARTED.md
-│   └── INTEGRATION_GUIDES.md
-│
-├── .gitignore                  # Excludes: *.db, temp files, dev artifacts
-├── setup.py                    # PyPI package setup
-├── pyproject.toml             # Modern Python packaging
-├── README.md                   # Main documentation
-├── LICENSE                     # MIT License
-├── E2E_TESTING_GUIDE.md       # Full testing workflow
-└── TESTING_PLAN.md            # Testing strategy
-
+├── dist/                        # Built package (gitignored)
+├── .gitignore
+├── setup.py                     # PyPI package configuration
+├── pyproject.toml               # PEP 517 packaging
+├── MANIFEST.in                  # Package data manifest
+├── LICENSE                      # MIT License
+├── README.md                    # Project overview & quick start
+└── STRUCTURE.md                 # This file
 ```
-
----
-
-## What's Excluded (.gitignore)
-
-**Test databases:**
-- `*.db`, `*.sqlite`, `*.sqlite3`
-- `test_*.db`, `*_demo.db`
-
-**Development artifacts:**
-- `DAY1_COMPLETE.md`, `DEPLOYMENT.md` (internal dev docs)
-- `*.pyc`, `__pycache__/`
-- `.pytest_cache/`, `.coverage`
-
-**Temporary files:**
-- `$null`, `*.tmp`, `*.swp`
-- Redis dumps (`dump.rdb`)
-
-**Build artifacts:**
-- `dist/`, `build/`, `*.egg-info/`
 
 ---
 
 ## Directory Purposes
 
-### `/shadowwatch` - Library Code
-Core Python package installed via pip
+### `/shadowwatch` — Library Code
 
-### `/license_server` - License Management
-FastAPI server deployed to Vercel for license validation
+The installable Python package. All public API lives in `__init__.py`.
 
-### `/examples` - Usage Demos
-Industry-specific integration examples (e-commerce, gaming, social)
+### `/examples` — Usage Demos
 
-### `/tests` - Test Suite
-Comprehensive tests for validators, integration, local/prod modes
+Runnable scripts showing real-world integrations. No server required.
 
-### `/docs` - Documentation
-GitHub Pages site + markdown docs for users
+### `/tests` — Test Suite
 
----
+Full test coverage. Run with `pytest tests/`. No license needed.
 
-## Files in Root
+### `/docs` — Documentation
 
-**Essential:**
-- `README.md` - Project overview, quick start
-- `setup.py` - PyPI packaging
-
- (legacy)
-- `pyproject.toml` - PEP 517 packaging (modern)
-- `LICENSE` - MIT license
-
-**Testing/Dev:**
-- `E2E_TESTING_GUIDE.md` - Client + provider testing workflow
-- `TESTING_PLAN.md` - Testing strategy
-
-**Excluded from repo:**
-- Development notes (DAY*.md files)
-- Test databases (*.db files)
-- Build artifacts
+Markdown docs readable on GitHub or any doc site.
 
 ---
 
-## Clean Commits
+## What's Excluded (`.gitignore`)
 
-```bash
-# Latest cleanup commit
-ee4b522 - chore: Clean up repository structure
-8252897 - feat: Add fail-fast guardrail for SQLite async usage
-72d6416 - feat: Make Shadow Watch universal
-0bff767 - fix: Update validator imports
-```
-
----
-
-## Production-Ready Checklist
-
-- [x] No test databases in Git
-- [x] No dev artifacts in Git
-- [x] Clean .gitignore
-- [x] Organized directory structure
-- [x] Tests in `/tests` directory
-- [x] Examples in `/examples` directory
-- [x] Documentation in `/docs` directory
-- [x] Build artifacts excluded
-- [x] Ready for PyPI deployment
-- [x] Ready for public GitHub repo
+| Category        | Patterns                                  |
+| --------------- | ----------------------------------------- |
+| Databases       | `*.db`, `*.sqlite`, `*.sqlite3`           |
+| Build artifacts | `dist/`, `build/`, `*.egg-info/`          |
+| Python cache    | `__pycache__/`, `*.pyc`, `.pytest_cache/` |
+| Dev artifacts   | `$null`, `*.tmp`, `dump.rdb`              |
+| Coverage        | `.coverage`, `htmlcov/`                   |
 
 ---
 
-**Repository is now clean and production-ready!** 🚀
+## Open Source Checklist
+
+- [x] MIT Licensed — no keys, no tiers, no limits
+- [x] No license server dependencies
+- [x] No event limits
+- [x] All features freely available
+- [x] Clean `.gitignore` (no test DBs in Git)
+- [x] Tests run without any external API
+- [x] Ready for PyPI (`pip install shadowwatch`)
+- [x] Ready for public GitHub
+
+---
+
+**v2.0.0 — Free and open source forever.** 🌑

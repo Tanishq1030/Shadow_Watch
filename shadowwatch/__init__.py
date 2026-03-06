@@ -3,43 +3,35 @@ Shadow Watch - Behavioral Intelligence for Your Application
 
 "Like a shadow — always there, never seen."
 
-A passive behavioral biometric system with:
+A passive behavioral intelligence system, fully free and open source.
 
-FREE TIER (no license needed):
+Features:
 - Builds user interest profiles (personalization engine)
 - Tracks user activity (behavioral analytics)
-- Generates behavioral profiles (user understanding)
-
-INVARIANT TIER (requires license):
+- Generates behavioral fingerprints (user understanding)
 - Temporal continuity measurement (ATO detection)
 - Behavioral divergence detection (compromise detection)
 - Pre-auth intent analysis (credential stuffing prevention)
 
 Usage:
     from shadowwatch import ShadowWatch
-    
-    # Free tier (no license needed)
-    sw = ShadowWatch(database_url="postgresql://...")
-    
+
+    sw = ShadowWatch(database_url="postgresql+asyncpg://...")
+
     # Track activity
     await sw.track(user_id=123, entity_id="AAPL", action="view")
-    
+
     # Get user profile
     profile = await sw.get_profile(user_id=123)
-    
-    # Invariant tier (requires license)
-    sw = ShadowWatch(
-        database_url="postgresql://...",
-        license_key="SW-INV-v1-XXXX-XXXX-XXXX"  
-    )
+
+    # ATO detection
     continuity = await sw.calculate_continuity("user_123")
 """
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 __author__ = "Tanishq"
 __license__ = "MIT"
 
 from shadowwatch.main import ShadowWatch
-from shadowwatch.exceptions import LicenseError
 
-__all__ = ["ShadowWatch", "LicenseError"]
+__all__ = ["ShadowWatch"]
