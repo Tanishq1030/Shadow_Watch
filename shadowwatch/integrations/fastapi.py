@@ -19,7 +19,7 @@ class ShadowWatchMiddleware(BaseHTTPMiddleware):
         from shadowwatch.integrations.fastapi import ShadowWatchMiddleware
         
         app = FastAPI()
-        sw = ShadowWatch(database_url="...", license_key="...")
+        sw = ShadowWatch(database_url="...")
         
         app.add_middleware(
             ShadowWatchMiddleware,

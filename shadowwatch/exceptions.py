@@ -2,18 +2,11 @@
 Shadow Watch Exceptions
 """
 
-class LicenseError(Exception):
-    """
-    Raised when Pro features are accessed without valid license
-    """
-    pass
-
 
 class LocalDevLimitError(Exception):
     """
-    Raised when local dev mode event limit is reached (deprecated)
-    
-    This exception is kept for backward compatibility but will be removed
-    in future versions. Free tier now has no event limits.
+    Deprecated. Kept for backward compatibility only.
+    Shadow Watch is now fully free with no event limits.
+    Will be removed in a future version.
     """
     pass

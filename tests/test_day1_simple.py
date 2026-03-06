@@ -1,71 +1,64 @@
 """
-Quick test of Day 1 refactoring (no pytest dependency)
+Quick smoke test - all Shadow Watch features (no pytest dependency)
 """
 import asyncio
-from shadowwatch import ShadowWatch, LicenseError
+from shadowwatch import ShadowWatch
+
+DATABASE_URL = "postgresql+asyncpg://postgres:password@localhost:5432/shadowwatch_test"
 
 
-async def test_free_tier():
-    print("\n1️⃣ Testing free tier without license...")
-    
-    sw = ShadowWatch(database_url="sqlite+aiosqlite:///test_day1.db")
-    
-    # Initialize database
+async def test_core_features():
+    print("\n1️⃣ Testing core features (no license needed)...")
+
+    sw = ShadowWatch(database_url=DATABASE_URL)
     await sw.init_database()
-    
-    # Test free tier methods
+
     await sw.track(user_id=123, entity_id="AAPL", action="view")
     print("   ✅ track() works")
-    
+
     profile = await sw.get_profile(user_id=123)
     print("   ✅ get_profile() works")
-    
+
     library = await sw.get_library(user_id=123)
     print("   ✅ get_library() works")
 
 
-async def test_pro_methods():
-    print("\n2️⃣ Testing Pro methods raise LicenseError...")
-    
-    sw = ShadowWatch(database_url="sqlite+aiosqlite:///test_day1.db")
-    
-    try:
-        await sw.calculate_continuity("user_123")
-        print("   ❌ Should have raised LicenseError!")
-    except LicenseError as e:
-        print("   ✅ LicenseError raised correctly")
-        print(f"   📝 Error message: {str(e)[:80]}...")
+async def test_advanced_features():
+    print("\n2️⃣ Testing advanced features (all free)...")
+
+    sw = ShadowWatch(database_url=DATABASE_URL)
+    await sw.init_database()
+
+    await sw.track(user_id=999, entity_id="TSLA", action="view")
+
+    result = await sw.calculate_continuity("999")
+    print(f"   ✅ calculate_continuity() works — score: {result.get('score', 'N/A')}")
 
 
-def test_autocomplete():
+def test_all_methods_visible():
     print("\n3️⃣ Testing methods visible in dir()...")
-    
-    sw = ShadowWatch(database_url="sqlite+aiosqlite:///test_day1.db")
-    
+
+    sw = ShadowWatch(database_url=DATABASE_URL)
     methods = dir(sw)
-    
-    # Free tier methods
+
     assert "track" in methods
     assert "get_profile" in methods
     assert "get_library" in methods
-    print("   ✅ Free tier methods visible")
-    
-    # Pro tier methods
     assert "calculate_continuity" in methods
     assert "detect_divergence" in methods
     assert "pre_auth_intent" in methods
-    print("   ✅ Pro tier methods visible")
+    print("   ✅ All methods visible")
 
 
 if __name__ == "__main__":
     print("\n" + "="*70)
-    print("Shadow Watch Day 1 Refactoring Test")
+    print("Shadow Watch - Open Source Smoke Test")
     print("="*70)
-    
-    asyncio.run(test_free_tier())
-    asyncio.run(test_pro_methods())
-    test_autocomplete()
-    
+
+    asyncio.run(test_core_features())
+    asyncio.run(test_advanced_features())
+    test_all_methods_visible()
+
     print("\n" + "="*70)
-    print("✅ All Day 1 tests passed!")
+    print("✅ All tests passed! Shadow Watch is fully free.")
     print("="*70 + "\n")

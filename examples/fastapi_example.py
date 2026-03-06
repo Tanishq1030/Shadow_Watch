@@ -19,10 +19,9 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://localhost/shadoww
 engine = create_async_engine(DATABASE_URL, echo=True)
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-# Initialize Shadow Watch
+# Initialize Shadow Watch (no license key needed)
 sw = ShadowWatch(
-    database_url=DATABASE_URL,
-    license_key=os.getenv("SHADOWWATCH_LICENSE", "SW-TRIAL-0001-2026-A1B2")
+    database_url=DATABASE_URL
 )
 
 

@@ -1,173 +1,124 @@
-# Shadow Watch - Getting Started Guide
+﻿# Shadow Watch — Getting Started Guide
 
 ## Installation
-
-### Basic Installation
 
 ```bash
 pip install shadowwatch
 ```
 
-### With Optional Dependencies
+With optional extras:
 
 ```bash
-# With Redis support (recommended for production)
-pip install shadowwatch[redis]
-
-# With FastAPI integration
-pip install shadowwatch[fastapi]
-
-# Everything
-pip install shadowwatch[redis,fastapi]
+pip install shadowwatch[redis]          # Redis caching support
+pip install shadowwatch[fastapi]        # FastAPI middleware
+pip install shadowwatch[redis,fastapi]  # Everything
 ```
 
 ---
 
 ## Quick Start (5 Minutes)
 
-### 1. Get a Trial License Key
+### 1. Set Up Your Database
 
-Get a free 30-day trial license at: https://shadow-watch-three.vercel.app/
+Shadow Watch works with **PostgreSQL** (recommended) or **MySQL**. SQLite is supported for local development only.
 
-Or email: tanishqdasari2004@gmail.com
+**PostgreSQL (production):**
+
+```bash
+createdb myapp
+```
+
+**SQLite (local dev):**
+No setup needed — file is created automatically.
 
 ---
 
-### 2. Set Up Database
-
-Shadow Watch requires a PostgreSQL or SQLite database.
-
-**For development (SQLite):**
-
-```python
-database_url = "sqlite+aiosqlite:///./shadowwatch.db"
-```
-
-**For production (PostgreSQL):**
-
-```python
-database_url = "postgresql+asyncpg://user:password@localhost:5432/mydb"
-```
-
----
-
-### 3. Initialize Shadow Watch
+### 2. Initialize Shadow Watch
 
 ```python
 from shadowwatch import ShadowWatch
 
 sw = ShadowWatch(
-    database_url="sqlite+aiosqlite:///./shadowwatch.db",
-    license_key="SW-TRIAL-XXXX-XXXX-XXXX-XXXX"
+    database_url="postgresql+asyncpg://user:password@localhost:5432/myapp",
+    # redis_url="redis://localhost:6379"  # Optional, for multi-instance caching
 )
 ```
 
 ---
 
-### 4. Create Database Tables
+### 3. Create Database Tables
 
 ```python
-from shadowwatch.models import Base
-from sqlalchemy.ext.asyncio import create_async_engine
-
-engine = create_async_engine(database_url)
-
-async with engine.begin() as conn:
-    await conn.run_sync(Base.metadata.create_all)
+await sw.init_database()
 ```
+
+This creates three tables:
+
+- `shadow_watch_activity_events`
+- `shadow_watch_interests`
+- `shadow_watch_library_versions`
 
 ---
 
-### 5. Track User Activity
+### 4. Track User Activity
 
 ```python
-# Track a user viewing an asset
-await sw.track(
-    user_id=123,
-    entity_id="AAPL",
-    action="view",
-    metadata={"source": "watchlist"}
-)
+# Track a page view
+await sw.track(user_id=123, entity_id="AAPL", action="view")
 
 # Track a search
-await sw.track(
-    user_id=123,
-    entity_id="TECH_STOCKS",
-    action="search",
-    metadata={"query": "tech stocks"}
-)
+await sw.track(user_id=123, entity_id="TECH_STOCKS", action="search",
+               metadata={"query": "tech stocks"})
 
-# Track a trade (highest weight)
-await sw.track(
-    user_id=123,
-    entity_id="AAPL",
-    action="trade",
-    metadata={"quantity": 10, "price": 185.20}
-)
+# Track a trade (highest weight — auto-pins the entity)
+await sw.track(user_id=123, entity_id="AAPL", action="trade",
+               metadata={"quantity": 10, "price": 185.20})
 ```
 
 ---
 
-### 6. Get User Profile
+### 5. Get User Profile
 
 ```python
-# Get user's behavioral profile
 profile = await sw.get_profile(user_id=123)
-
 print(profile)
-# Output:
 # {
 #   "total_items": 15,
 #   "fingerprint": "a7f9e2c4b8d1...",
 #   "library": [
 #     {"entity_id": "AAPL", "score": 0.85, "is_pinned": True},
 #     {"entity_id": "MSFT", "score": 0.72, "is_pinned": False},
-#     ...
 #   ]
 # }
 ```
 
 ---
 
-### 7. Verify Login (Behavioral Biometric)
+### 6. Verify Login (Behavioral Biometric / ATO Detection)
 
 ```python
-# Verify if login is legitimate based on behavioral fingerprint
 trust = await sw.verify_login(
     user_id=123,
     request_context={
         "ip": "192.168.1.1",
         "user_agent": "Mozilla/5.0...",
         "device_fingerprint": "abc123...",
-        "library_fingerprint": "a7f9e2c4b8d1..."  # From user's cache
     }
 )
 
-print(trust)
-# Output:
-# {
-#   "trust_score": 0.85,  # 0.0-1.0
-#   "risk_level": "low",   # low/medium/high
-#   "action": "allow"      # allow/require_mfa/block
-# }
+# {"trust_score": 0.85, "risk_level": "low", "action": "allow"}
 
-# Handle based on trust score
 if trust["action"] == "allow":
-    # Proceed with login
-    pass
+    pass  # proceed
 elif trust["action"] == "require_mfa":
-    # Request additional authentication
-    pass
+    pass  # send 2FA
 else:  # block
-    # Deny login attempt
-    pass
+    pass  # deny + alert
 ```
 
 ---
 
-## FastAPI Integration (Automatic Tracking)
-
-### Basic Setup
+## FastAPI Integration (Auto-Tracking)
 
 ```python
 from fastapi import FastAPI
@@ -176,27 +127,20 @@ from shadowwatch.integrations.fastapi import ShadowWatchMiddleware
 
 app = FastAPI()
 
-# Initialize Shadow Watch
-sw = ShadowWatch(
-    database_url="postgresql+asyncpg://...",
-    license_key="SW-TRIAL-XXXX-XXXX-XXXX-XXXX"
-)
+sw = ShadowWatch(database_url="postgresql+asyncpg://...")
+await sw.init_database()
 
-# Add middleware for automatic tracking
 app.add_middleware(
     ShadowWatchMiddleware,
     shadowwatch=sw,
-    extract_user_id=lambda request: request.state.user_id,  # Your auth logic
+    extract_user_id=lambda request: request.state.user_id,
     extract_entity_id=lambda request: request.path_params.get("symbol"),
     extract_action=lambda request: request.method.lower()
 )
 
 @app.get("/stocks/{symbol}")
 async def get_stock(symbol: str):
-    # Shadow Watch automatically tracks this as:
-    # user_id=request.state.user_id
-    # entity_id=symbol
-    # action="get"
+    # Shadow Watch auto-tracks this request
     return {"symbol": symbol, "price": 185.20}
 ```
 
@@ -204,34 +148,23 @@ async def get_stock(symbol: str):
 
 ## Production Deployment
 
-### Multi-Instance Setup (Redis Required)
+### Multi-Instance (Redis required)
 
-When deploying with multiple workers (Gunicorn, Kubernetes), use Redis for shared cache:
+When running multiple workers (Gunicorn, Kubernetes), add Redis so fingerprints are shared across instances:
 
 ```python
 sw = ShadowWatch(
     database_url="postgresql+asyncpg://...",
-    license_key="SW-...",
-    redis_url="redis://localhost:6379"  # REQUIRED for multi-instance!
+    redis_url="redis://localhost:6379"  # Shared cache
 )
 ```
 
-**Why Redis is needed:**
-- License verification cached across all instances
-- Fingerprints shared between workers
-- No stale data issues
-
----
-
-### Single-Instance Setup (No Redis)
-
-For development or single-process deployments:
+### Single Instance (No Redis needed)
 
 ```python
 sw = ShadowWatch(
-    database_url="sqlite+aiosqlite:///./shadowwatch.db",
-    license_key="SW-..."
-    # No redis_url → uses in-memory cache (fine for single instance)
+    database_url="postgresql+asyncpg://...",
+    # No redis_url → in-memory cache, fine for single process
 )
 ```
 
@@ -239,144 +172,98 @@ sw = ShadowWatch(
 
 ## Action Weights
 
-Shadow Watch assigns different weights to different actions:
-
-| Action | Weight | Use Case |
-|--------|--------|----------|
-| `view` | 1 | Viewing a stock page |
-| `search` | 3 | Searching for assets |
-| `alert` | 5 | Setting price alerts |
-| `watchlist` | 8 | Adding to watchlist |
-| `trade` | 10 | Executing trades (HIGHEST) |
-
-**Why trades are weighted highest:**
-- Real money invested = highest intent signal
-- Automatic pinning (immune to pruning)
-- Strongest behavioral indicator
+| Action      | Weight | Meaning                    |
+| ----------- | ------ | -------------------------- |
+| `view`      | 1      | Lowest intent              |
+| `search`    | 3      | Active interest            |
+| `alert`     | 5      | High interest              |
+| `watchlist` | 8      | Strong intent              |
+| `trade`     | 10     | Highest intent — auto-pins |
 
 ---
 
 ## Library Management
 
-### Automatic Pruning
+```python
+await sw.pin_item(user_id=123, entity_id="AAPL")    # Prevent pruning
+await sw.unpin_item(user_id=123, entity_id="AAPL")  # Allow pruning
+await sw.remove_item(user_id=123, entity_id="MSFT") # Manual removal
+library = await sw.get_library(user_id=123)         # Get sorted list
+```
 
-When user's library exceeds 50 items:
-- Lowest-scored, unpinned, oldest item is removed
-- User receives email notification
-- 48-hour undo window
+---
 
-### Manual Operations
+## GDPR Compliance
 
 ```python
-# Pin an important item (prevent pruning)
-await sw.pin_item(user_id=123, entity_id="AAPL")
+# Export all user data
+data = await sw.export_user_data(user_id=123)
 
-# Unpin
-await sw.unpin_item(user_id=123, entity_id="AAPL")
+# Delete everything for a user (right to be forgotten)
+await sw.delete_user(user_id=123)
 
-# Remove manually
-await sw.remove_item(user_id=123, entity_id="MSFT")
-
-# Get library
-library = await sw.get_library(user_id=123)
+# Prune old activity logs
+await sw.prune_old_activities(days=90)
 ```
 
 ---
 
 ## Security Best Practices
 
-### 1. Store License Key Securely
-
 ```python
-# ❌ DON'T: Hardcode in source
-sw = ShadowWatch(license_key="SW-TRIAL-1234-5678-9012-3456")
-
-# ✅ DO: Use environment variables
+# ✅ Always read credentials from environment variables
 import os
-sw = ShadowWatch(license_key=os.getenv("SHADOWWATCH_LICENSE_KEY"))
-```
+sw = ShadowWatch(database_url=os.getenv("DATABASE_URL"))
 
----
-
-### 2. Use HTTPS for License Server
-
-License verification calls `https://shadow-watch-three.vercel.app/verify`
-
-Ensure your production environment allows HTTPS outbound.
-
----
-
-### 3. Validate User IDs
-
-```python
-# ❌ DON'T: Trust user input directly
-user_id = request.query_params.get("user_id")
-await sw.track(user_id=user_id, ...)
-
-# ✅ DO: Use authenticated user from session
+# ✅ Always get user_id from authenticated session — never from user input
 user_id = request.state.user.id  # From your auth middleware
-await sw.track(user_id=user_id, ...)
+
+# ✅ Wrap tracking in try/except — never let Shadow Watch crash your app
+try:
+    await sw.track(user_id=user_id, entity_id="AAPL", action="view")
+except Exception as e:
+    logger.error(f"Tracking failed: {e}")
 ```
 
 ---
 
 ## Troubleshooting
 
-### "License key invalid or expired"
+**`No module named 'shadowwatch'`**
 
-**Cause:** Trial expired or invalid key
+```bash
+pip install shadowwatch
+```
 
-**Solution:** 
-1. Check expiration date: https://shadow-watch-three.vercel.app/verify
-2. Email tanishqdasari2004@gmail.com for new trial
+**`Redis connection refused`**
+Remove `redis_url` to use in-memory cache, or start Redis:
 
----
+```bash
+docker run -d -p 6379:6379 redis:7-alpine
+```
 
-### "Cannot connect to license server"
-
-**Cause:** Network/firewall blocking HTTPS to Vercel
-
-**Solution:**
-1. Check internet connection
-2. Verify firewall allows `https://shadow-watch-three.vercel.app`
-3. Check proxy settings
-
----
-
-### "Redis connection failed"
-
-**Cause:** Redis not available but `redis_url` provided
-
-**Solution:**
-1. For development: Remove `redis_url` (uses in-memory cache)
-2. For production: Ensure Redis is running
-3. Verify connection string: `redis://host:port`
+**`asyncpg.exceptions.UndefinedTableError`**
+You haven't called `await sw.init_database()` yet.
 
 ---
 
 ## Examples
 
-See `/examples` directory for:
-- `fastapi_example.py` - Complete FastAPI integration
-- `standalone_usage.py` - Direct API usage without framework
+See [`/examples`](../examples/) for:
 
----
-
-## Need Help?
-
-- **GitHub Issues:** https://github.com/Tanishq1030/Shadow_Watch/issues
-- **Email:** tanishqdasari2004@gmail.com
-- **Documentation:** https://github.com/Tanishq1030/Shadow_Watch#readme
+- `fastapi_example.py` — Full FastAPI integration
+- `standalone_usage.py` — Direct Python usage
+- `ecommerce_example.py`, `gaming_example.py`, `social_media_example.py` — Industry patterns
 
 ---
 
 ## Next Steps
 
 1. ✅ Install Shadow Watch
-2. ✅ Get trial license
-3. ✅ Follow Quick Start
-4. ✅ Integrate into your app
-5. ✅ Deploy to production
-6. ✅ Upgrade to paid license when ready
+2. ✅ Initialize with your database URL
+3. ✅ Call `init_database()`
+4. ✅ Add `track()` calls in your app
+5. ✅ Use `verify_login()` for ATO protection
+6. ✅ Deploy to production with PostgreSQL + optional Redis
 
 **Welcome to Shadow Watch!** 🌑

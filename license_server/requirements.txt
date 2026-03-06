@@ -1,8 +1,0 @@
-# License Server Requirements (Vercel Serverless)
-
-fastapi
-uvicorn[standard]
-pydantic
-supabase
-redis
-httpx

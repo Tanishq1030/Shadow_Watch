@@ -22,8 +22,7 @@ async def test_database_init():
     print(f"\n📡 Connecting to: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else DATABASE_URL}")
     
     sw = ShadowWatch(
-        database_url=DATABASE_URL,
-        license_key=None  # Local dev mode
+        database_url=DATABASE_URL
     )
     
     print("\n🔧 Calling init_database()...")

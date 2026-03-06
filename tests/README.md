@@ -5,153 +5,104 @@ This directory contains test files for Shadow Watch.
 ## Test Files
 
 ### `test_local_dev.py`
-Tests Shadow Watch in **local development mode** (no license required).
+
+Tests Shadow Watch in **local development mode** (no license required, no Redis).
 
 **Features:**
+
 - No license key needed
-- 1,000 event limit
+- No event limits
 - Perfect for testing locally
-- CI/CD pipelines
+- CI/CD friendly
 
 **Run:**
+
 ```bash
-cd tests
-python test_local_dev.py
-```
-
-**Expected output:**
-```
-⚠️  Shadow Watch: LOCAL DEV MODE (No License Required)
-======================================================================
-   • Limited to 1,000 events
-   • For production, get free trial:
-      https://shadow-watch-three.vercel.app/trial
-======================================================================
-
-✅ All tests pass
-Events used: 15 / 1000
+python tests/test_local_dev.py
 ```
 
 ---
 
 ### `test_production.py`
-Tests Shadow Watch with a **production/trial license** (unlimited events).
+
+Tests Shadow Watch against a real PostgreSQL database.
 
 **Features:**
-- Requires valid license key
-- Unlimited events
+
 - Full feature testing
 - Multi-user support
-
-**Get License:**
-```bash
-# Option 1: Instant trial (free, 30 days, 10k events)
-curl -X POST https://shadow-watch-three.vercel.app/trial \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Your Name","email":"your@email.com"}'
-
-# Option 2: Email for production license
-# Email: tanishqdasari2004@gmail.com
-```
+- Unlimited events
 
 **Run:**
-```bash
-cd tests
 
-# Set license key
-set SHADOWWATCH_LICENSE_KEY=SW-TRIAL-XXXX-XXXX-XXXX-XXXX
+```bash
+# Set your database URL
+set DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/mydb
 
 # Run test
-python test_production.py
+python tests/test_production.py
 ```
 
-**Expected output:**
-```
-✅ Shadow Watch: Licensed to John Doe (trial)
+---
 
-✅ All production tests pass
-   • Activity tracking ✓
-   • User profiling ✓
-   • Login verification ✓
-   • Library management ✓
-```
+### `test_day1_refactoring.py`
+
+Verifies all features (including `calculate_continuity`) are freely available.
+
+### `test_continuity.py`
+
+Tests the behavioral continuity / ATO detection algorithm end-to-end.
+
+### `test_simple.py`
+
+Quick sanity check — initialize, track, get profile.
 
 ---
 
 ## Quick Start
 
-**1. Test Local Mode (No Setup):**
+**1. Set up your database:**
+
 ```bash
-python test_local_dev.py
+# Using PostgreSQL locally
+createdb shadowwatch_test
 ```
 
-**2. Test Production Mode:**
+**2. Run the test suite:**
+
 ```bash
-# Get trial license
-curl -X POST https://shadow-watch-three.vercel.app/trial \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Test User","email":"test@example.com"}'
-
-# Copy license key from response
-set SHADOWWATCH_LICENSE_KEY=SW-TRIAL-your-key-here
-
-# Run test
-python test_production.py
+pytest tests/
 ```
+
+No license key required! ✅
 
 ---
 
 ## What's Tested
 
-| Feature | Local Dev | Production |
-|---------|-----------|------------|
-| Activity Tracking | ✅ (1k limit) | ✅ (unlimited) |
-| User Profiling | ✅ | ✅ |
-| Login Verification | ✅ | ✅ |
-| Library Management | ✅ | ✅ |
-| License Verification | ⏭️ Skipped | ✅ Required |
-| Multi-User Support | ✅ | ✅ |
-| Event Limits | ✅ 1,000 | ❌ None |
-
----
-
-## Troubleshooting
-
-**Q: "No module named 'shadowwatch'"**
-```bash
-pip install shadowwatch
-```
-
-**Q: "No module named 'aiosqlite'"**
-```bash
-pip install aiosqlite
-```
-
-**Q: "License verification failed"**
-- Check internet connection
-- Verify license key is correct
-- Check license hasn't expired
-- Ensure firewall allows HTTPS to Vercel
-
-**Q: "Local dev limit reached"**
-- This is expected after 1,000 events
-- Get trial license for unlimited events
-- Or delete `test_local_dev.db` to reset
+| Feature                   | Status              |
+| ------------------------- | ------------------- |
+| Activity Tracking         | ✅                  |
+| User Profiling            | ✅                  |
+| Login Verification        | ✅                  |
+| Library Management        | ✅                  |
+| Temporal Continuity (ATO) | ✅                  |
+| Multi-User Support        | ✅                  |
+| Event Limits              | ❌ None (unlimited) |
 
 ---
 
 ## CI/CD Integration
 
-**Use local mode for testing in CI:**
 ```yaml
 # .github/workflows/test.yml
 - name: Test Shadow Watch
+  env:
+    DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/shadowwatch_test
   run: |
-    pip install shadowwatch aiosqlite
-    python tests/test_local_dev.py
+    pip install shadowwatch
+    pytest tests/
 ```
-
-No license key needed for CI! ✅
 
 ---
 

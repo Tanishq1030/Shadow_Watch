@@ -1,3 +1,0 @@
-"""
-License Server Routes Package
-"""

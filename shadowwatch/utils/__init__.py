@@ -1,6 +1,5 @@
 """Shadow Watch utilities"""
 
-from shadowwatch.utils.license import verify_license_key, report_usage
 from shadowwatch.utils.cache import create_cache, CacheBackend, RedisCache, MemoryCache
 from shadowwatch.utils.validators import (
     validate_action,
@@ -12,9 +11,6 @@ from shadowwatch.utils.validators import (
 )
 
 __all__ = [
-    # License
-    "verify_license_key",
-    "report_usage",
     # Cache
     "create_cache",
     "CacheBackend",

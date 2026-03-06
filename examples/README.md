@@ -8,7 +8,7 @@ Example scripts showing Shadow Watch usage across different industries.
 # E-commerce example
 python examples/ecommerce_example.py
 
-# Social media example  
+# Social media example
 python examples/social_media_example.py
 
 # Gaming example
@@ -22,11 +22,13 @@ python examples/gaming_example.py
 **Use case:** Product recommendations, cart abandonment detection
 
 **Tracks:**
+
 - Product views
 - Cart additions
 - Purchases (with price/quantity metadata)
 
 **Output:**
+
 - User interest profile
 - Product recommendations
 - Cross-sell opportunities
@@ -38,12 +40,14 @@ python examples/gaming_example.py
 **Use case:** Bot detection, interest graphing
 
 **Tracks:**
+
 - Likes
 - Follows
 - Shares
 - Searches
 
 **Output:**
+
 - Real user vs bot classification
 - Behavior diversity analysis
 - Engagement patterns
@@ -55,12 +59,14 @@ python examples/gaming_example.py
 **Use case:** Playstyle analysis, item recommendations
 
 **Tracks:**
+
 - Character selection
 - Level progression
 - Item/equipment usage
 - Skill activation
 
 **Output:**
+
 - Playstyle classification
 - Item recommendations
 - Progression analytics
@@ -74,10 +80,9 @@ All examples follow the same pattern:
 ```python
 from shadowwatch import ShadowWatch
 
-# Initialize (no license for local dev)
+# Initialize — no license key needed
 sw = ShadowWatch(
-    database_url="sqlite+aiosqlite:///./demo.db",
-    license_key=None  # Local dev mode
+    database_url="postgresql+asyncpg://localhost:5432/mydb"
 )
 
 # Create tables
@@ -101,12 +106,12 @@ profile = await sw.get_profile(user_id=123)
 
 ## Industry Mappings
 
-| Industry | entity_id | action | metadata |
-|----------|-----------|--------|----------|
-| **E-commerce** | `product_123` | `view`, `add_to_cart`, `purchase` | `price`, `quantity` |
-| **Social Media** | `post_789`, `user_456` | `like`, `follow`, `share` | `platform` |
-| **Gaming** | `character_warrior`, `level_5` | `select`, `complete`, `equip` | `time_taken`, `deaths` |
-| **SaaS** | `feature_analytics` | `use`, `enable`, `create` | `duration` |
-| **Streaming** | `movie_inception` | `watch`, `favorite`, `skip` | `watch_time` |
+| Industry         | entity_id                      | action                            | metadata               |
+| ---------------- | ------------------------------ | --------------------------------- | ---------------------- |
+| **E-commerce**   | `product_123`                  | `view`, `add_to_cart`, `purchase` | `price`, `quantity`    |
+| **Social Media** | `post_789`, `user_456`         | `like`, `follow`, `share`         | `platform`             |
+| **Gaming**       | `character_warrior`, `level_5` | `select`, `complete`, `equip`     | `time_taken`, `deaths` |
+| **SaaS**         | `feature_analytics`            | `use`, `enable`, `create`         | `duration`             |
+| **Streaming**    | `movie_inception`              | `watch`, `favorite`, `skip`       | `watch_time`           |
 
 **Shadow Watch is domain-agnostic** - it works for any industry by adapting `entity_id` and `action` to your use case.
