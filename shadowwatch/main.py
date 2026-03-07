@@ -5,7 +5,7 @@ This is the primary interface users interact with.
 All database sessions and configurations are injected.
 """
 
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from shadowwatch.utils.cache import create_cache, CacheBackend
 from shadowwatch.core.tracker import track_activity
@@ -13,6 +13,86 @@ from shadowwatch.core.scorer import generate_library_snapshot
 from shadowwatch.core.fingerprint import verify_fingerprint
 from shadowwatch.core.trust_score import calculate_trust_score
 from shadowwatch.models import Base  # For init_database()
+
+
+async def _persist_trust_signals(
+    db: AsyncSession,
+    user_id: int,
+    request_context: dict,
+) -> None:
+    """
+    Record IP and device observations after each verify_login() call.
+
+    This is what builds the trust signal database over time — every
+    successful login populates these tables so future logins can be
+    compared against known-good history.
+
+    Silent fail — never raises (tracking must never break login flow).
+    """
+    from datetime import datetime, timezone
+    from sqlalchemy import select
+    from shadowwatch.models.ip_history import UserIPHistory
+    from shadowwatch.models.device import UserDeviceHistory
+
+    try:
+        ip = request_context.get("ip")
+        country = request_context.get("country")
+        user_agent = request_context.get("user_agent")
+        device_fp = request_context.get("device_fingerprint")
+        now = datetime.now(timezone.utc)
+
+        # --- Persist IP ---
+        if ip:
+            result = await db.execute(
+                select(UserIPHistory).where(
+                    UserIPHistory.user_id == user_id,
+                    UserIPHistory.ip_address == ip,
+                )
+            )
+            existing_ip = result.scalar_one_or_none()
+            if existing_ip:
+                existing_ip.seen_count += 1
+                existing_ip.last_seen = now
+                if country and not existing_ip.country:
+                    existing_ip.country = country
+            else:
+                db.add(UserIPHistory(
+                    user_id=user_id,
+                    ip_address=ip,
+                    country=country,
+                    first_seen=now,
+                    last_seen=now,
+                    seen_count=1,
+                ))
+
+        # --- Persist Device ---
+        if device_fp:
+            result = await db.execute(
+                select(UserDeviceHistory).where(
+                    UserDeviceHistory.user_id == user_id,
+                    UserDeviceHistory.device_fingerprint == device_fp,
+                )
+            )
+            existing_device = result.scalar_one_or_none()
+            if existing_device:
+                existing_device.seen_count += 1
+                existing_device.last_seen = now
+            else:
+                db.add(UserDeviceHistory(
+                    user_id=user_id,
+                    device_fingerprint=device_fp,
+                    user_agent=user_agent,
+                    first_seen=now,
+                    last_seen=now,
+                    seen_count=1,
+                    trust_level=0.8,
+                ))
+
+        await db.commit()
+
+    except Exception:
+        # Silent fail — never break the login flow
+        pass
 
 
 class ShadowWatch:
@@ -120,6 +200,9 @@ class ShadowWatch:
         from shadowwatch.models.interest import UserInterest
         from shadowwatch.models.activity import UserActivityEvent
         from shadowwatch.models.library import LibraryVersion
+        from shadowwatch.models.device import UserDeviceHistory
+        from shadowwatch.models.ip_history import UserIPHistory
+        from shadowwatch.models.pre_auth import PreAuthSession
 
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -194,26 +277,49 @@ class ShadowWatch:
         """
         Calculate trust score for login / sensitive action
 
+        Also persists IP and device signals to history tables so the
+        trust score improves over time as more logins are observed.
+
         Args:
             request_context: {
-                "ip": str,
-                "country": Optional[str],
-                "user_agent": str,
+                "ip":                 Optional[str],
+                "country":            Optional[str],    # ISO 3166-1 alpha-2
+                "user_agent":         Optional[str],
                 "device_fingerprint": Optional[str],
-                "library_fingerprint": Optional[str],
-                "timestamp": Optional[datetime]
+                "session_id":         Optional[str],    # link to pre-auth session
+                "top_entities":       Optional[Set[str]], # client entity set
+                "timestamp":          Optional[datetime]
             }
 
         Returns:
             {
                 "trust_score": float (0.0-1.0),
-                "risk_level": str ("low", "medium", "elevated", "high"),
-                "action": str ("allow", "monitor", "require_mfa", "block"),
-                "factors": {...}
+                "risk_level":  str ("low", "medium", "elevated", "high"),
+                "action":      str ("allow", "monitor", "require_mfa", "block"),
+                "factors":     dict
             }
         """
         async with self.AsyncSessionLocal() as db:
-            return await calculate_trust_score(db, user_id, request_context)
+            result = await calculate_trust_score(db, user_id, request_context)
+            
+            # Persist IP + device observations
+            await _persist_trust_signals(db, user_id, request_context)
+            
+            # Link pre-auth session if it exists
+            session_id = request_context.get("session_id")
+            if session_id:
+                from sqlalchemy import select, update
+                from shadowwatch.models.pre_auth import PreAuthSession
+                try:
+                    stmt = update(PreAuthSession).where(
+                        PreAuthSession.session_id == session_id
+                    ).values(associated_user_id=user_id)
+                    await db.execute(stmt)
+                    await db.commit()
+                except Exception:
+                    pass
+                    
+            return result
 
     async def calculate_continuity(
         self,
@@ -255,9 +361,15 @@ class ShadowWatch:
         Detects when behavioral evolution stops being self-consistent
         and starts being adversarial.
 
+        Divergence modes:
+            shock    - Fast actor substitution (single session, large distance spike)
+            creep    - Gradual account drift (slow, sustained accumulation)
+            fracture - Mixed signals (partial account sharing or hybrid attack)
+            none     - No significant divergence detected
+
         Args:
             subject_id: Subject identifier
-            window: Time window in hours (default: 24)
+            window: Time window in hours to inspect (default: 24)
 
         Returns:
             {
@@ -267,16 +379,20 @@ class ShadowWatch:
                 "confidence": float (0.0-1.0)
             }
         """
-        raise NotImplementedError(
-            "detect_divergence() is coming soon. "
-            "Track progress at https://github.com/Tanishq1030/shadow-watch"
-        )
+        from shadowwatch.invariant.integration import detect_divergence_impl
+
+        async with self.AsyncSessionLocal() as db:
+            return await detect_divergence_impl(
+                db,
+                str(subject_id),
+                window_hours=window if window is not None else 24
+            )
 
     async def pre_auth_intent(
         self,
         identifier: str,
         observations: Dict
-    ):
+    ) -> Dict:
         """
         Analyze pre-authentication intent
 
@@ -284,21 +400,79 @@ class ShadowWatch:
         credential stuffing and other pre-auth attacks.
 
         Args:
-            identifier: Email, username, or device_id
+            identifier: Session ID, or device_fingerprint
             observations: {
-                "navigation_path": List[str],
-                "time_to_submit": float,
-                "retry_count": int
+                "session_id":         str,          # Required for tracking
+                "ip":                 Optional[str],
+                "device_fingerprint": Optional[str],
+                "typing_cadence":     Optional[Dict],
+                "mouse_latency":      Optional[float],
+                "navigation_path":    Optional[List[str]],
+                "user_agent":         Optional[str]
             }
 
         Returns:
             {
                 "intent_score": float (0.0-1.0),
-                "confidence": float (0.0-1.0),
-                "applicable": bool
+                "risk_level":   str ("low", "elevated", "high"),
+                "action":       str ("allow", "challenge", "block"),
+                "session_id":   str
             }
         """
-        raise NotImplementedError(
-            "pre_auth_intent() is coming soon. "
-            "Track progress at https://github.com/Tanishq1030/shadow-watch"
-        )
+        from sqlalchemy import select
+        from shadowwatch.models.pre_auth import PreAuthSession
+        from datetime import datetime, timezone
+        
+        session_id = observations.get("session_id")
+        if not session_id:
+            # Fallback to identifier if session_id is missing
+            session_id = identifier
+
+        async with self.AsyncSessionLocal() as db:
+            # 1. Store/Update pre-auth session
+            result = await db.execute(
+                select(PreAuthSession).where(PreAuthSession.session_id == session_id)
+            )
+            session = result.scalar_one_or_none()
+            
+            now = datetime.now(timezone.utc)
+            if not session:
+                session = PreAuthSession(
+                    session_id=session_id,
+                    ip_address=observations.get("ip"),
+                    device_fingerprint=observations.get("device_fingerprint"),
+                    signals=observations,
+                    created_at=now,
+                    updated_at=now
+                )
+                db.add(session)
+            else:
+                # Merge new signals
+                existing_signals = session.signals or {}
+                existing_signals.update(observations)
+                session.signals = existing_signals
+                session.updated_at = now
+                if observations.get("ip"):
+                    session.ip_address = observations.get("ip")
+            
+            await db.commit()
+
+            # 2. Risk Detection logic (Simplified for now - can be expanded)
+            # High velocity or bot pattern detection
+            risk_level = "low"
+            action = "allow"
+            intent_score = 1.0
+
+            # Simple heuristic: typing cadence check (stub)
+            if observations.get("typing_cadence"):
+                # Real ML model or statistical check would go here
+                pass
+
+            # Detect high-velocity cross-account attempts (stub)
+            
+            return {
+                "intent_score": intent_score,
+                "risk_level": risk_level,
+                "action": action,
+                "session_id": session_id
+            }

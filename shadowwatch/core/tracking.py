@@ -91,23 +91,21 @@ class TrackingEngine:
         This runs SILENTLY - no user-visible effects.
         Updates happen asynchronously.
         """
-        symbol_upper = symbol.upper()
-        
         # 1. Record raw activity event (audit trail)
         event = UserActivityEvent(
             user_id=user_id,
-            symbol=symbol_upper,
+            symbol=symbol,
             asset_type="stock",
             action_type=action,
             event_metadata=event_metadata or {},
             occurred_at=datetime.now(timezone.utc)
         )
         db.add(event)
-        
+
         # 2. Update or create aggregated interest score
         stmt = select(UserInterest).where(
             UserInterest.user_id == user_id,
-            UserInterest.symbol == symbol_upper
+            UserInterest.symbol == symbol
         )
         result = await db.execute(stmt)
         interest = result.scalar_one_or_none()
@@ -116,7 +114,7 @@ class TrackingEngine:
             # Create new interest
             interest = UserInterest(
                 user_id=user_id,
-                symbol=symbol_upper,
+                symbol=symbol,
                 score=0.0,
                 activity_count=0,
                 first_seen=datetime.now(timezone.utc),
@@ -135,4 +133,19 @@ class TrackingEngine:
             interest.is_pinned = True
             interest.portfolio_value = event_metadata["portfolio_value"]
         
+        # 5. Update Activity Heatmap (for temporal signals)
+        from shadowwatch.models.heatmap import UserActivityHeatmap
+        hour = datetime.now(timezone.utc).hour
+        heatmap_stmt = select(UserActivityHeatmap).where(
+            UserActivityHeatmap.user_id == user_id,
+            UserActivityHeatmap.hour == hour
+        )
+        heatmap_res = await db.execute(heatmap_stmt)
+        heatmap = heatmap_res.scalar_one_or_none()
+        
+        if heatmap:
+            heatmap.weight += 1.0
+        else:
+            db.add(UserActivityHeatmap(user_id=user_id, hour=hour, weight=1.0))
+            
         await db.commit()

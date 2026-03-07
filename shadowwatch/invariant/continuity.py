@@ -366,12 +366,12 @@ def calculate_confidence(
 ) -> float:
     """
     Calculate confidence in continuity score
-    
+
     Formula:
         confidence = 1 − e^(-n / k)
-    
+
     Grows asymptotically to 1.0 as sample count increases.
-    
+
     Confidence levels:
         n = 0   → 0.00  (no data)
         n = 10  → 0.18  (very low)
@@ -379,13 +379,97 @@ def calculate_confidence(
         n = 50  → 0.63  (moderate)
         n = 100 → 0.86  (high)
         n = 150 → 0.95  (very high)
-    
+
     Args:
         sample_count: Number of observations
         k: Stabilization constant (samples for ~63% confidence)
-    
+
     Returns:
         confidence: float ∈ [0, 1]
     """
     confidence = 1.0 - math.exp(-sample_count / k)
     return np.clip(confidence, 0.0, 1.0)
+
+
+# =====================================================
+# Divergence Detection
+# =====================================================
+
+# Thresholds for divergence mode classification
+SHOCK_DISTANCE_THRESHOLD = 2.0   # Single-step spike indicating fast takeover
+CREEP_ACCUMULATION_THRESHOLD = 1.0  # Slow accumulation indicating gradual drift
+DIVERGENCE_DECAY = 0.95          # Decay factor when behavior recovers
+VELOCITY_SMOOTHING = 0.3         # EMA weight for velocity smoothing
+
+
+def update_divergence(
+    state: InvariantState,
+    distance: float,
+) -> InvariantState:
+    """
+    Update divergence accumulation and classify the attack mode.
+
+    Divergence is a ratcheting signal — it accumulates when the actor
+    behaves anomalously and decays slowly when behavior normalises.
+
+    Modes:
+        shock    — distance spiked sharply in a single step (fast ATO)
+        creep    — slow, continuous accumulation (gradual ATO / account drift)
+        fracture — both shock and creep signals present (mixed/partial control)
+        None     — no significant divergence
+
+    Args:
+        state:    Current InvariantState (modified in-place)
+        distance: Current behavioral distance d_t
+
+    Returns:
+        Updated InvariantState
+    """
+    # Need at least a few samples before declaring divergence
+    if state.sample_count < 5:
+        return state
+
+    # Track previous accumulated divergence for velocity calculation
+    prev_accumulated = state.divergence_accumulated
+
+    # Accumulate or decay depending on current distance relative to threshold
+    normalized_distance = distance / max(state.sample_count ** 0.5, 1.0)
+
+    if normalized_distance > 0.5:
+        # Anomalous — ratchet up
+        state.divergence_accumulated = min(
+            1.0,
+            state.divergence_accumulated + normalized_distance * 0.1
+        )
+    else:
+        # Normal behaviour — slowly decay accumulated divergence
+        state.divergence_accumulated = max(
+            0.0,
+            state.divergence_accumulated * DIVERGENCE_DECAY
+        )
+
+    # Update velocity (exponential moving average of accumulation rate)
+    delta = state.divergence_accumulated - prev_accumulated
+    state.divergence_velocity = (
+        VELOCITY_SMOOTHING * delta
+        + (1 - VELOCITY_SMOOTHING) * state.divergence_velocity
+    )
+
+    # Classify divergence mode
+    is_shock = distance > SHOCK_DISTANCE_THRESHOLD
+    is_creep = (
+        state.divergence_accumulated >= CREEP_ACCUMULATION_THRESHOLD
+        and abs(state.divergence_velocity) < 0.5
+    )
+
+    if is_shock and is_creep:
+        state.divergence_mode = "fracture"
+    elif is_shock:
+        state.divergence_mode = "shock"
+    elif is_creep:
+        state.divergence_mode = "creep"
+    elif state.divergence_accumulated < 0.2:
+        # Sufficiently recovered — clear the mode
+        state.divergence_mode = None
+
+    return state
