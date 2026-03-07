@@ -52,27 +52,41 @@ async def inspect_user(sw: ShadowWatch, user_id: str):
         for ev in events:
             print(f"   [{ev['detected_at']}] {ev['mode'].upper()} (mag={ev['magnitude']:.2f})")
 
-async def list_divergences(sw: ShadowWatch):
+async def list_divergences(sw: ShadowWatch, unresolved_only: bool = False):
     """List recent global divergence events"""
-    print("\n🚨 Recent Global Divergences")
-    print("=" * 60)
+    status_str = " (Unresolved Only)" if unresolved_only else ""
+    print(f"\n🚨 Recent Global Divergences{status_str}")
+    print("=" * 80)
     
     async with sw.AsyncSessionLocal() as db:
         from sqlalchemy import text as sa_text
-        result = await db.execute(sa_text(
-            "SELECT user_id, mode, magnitude, detected_at FROM divergence_events "
-            "ORDER BY detected_at DESC LIMIT 20"
-        ))
+        query = "SELECT id, user_id, mode, magnitude, detected_at, resolved_at FROM divergence_events"
+        if unresolved_only:
+            query += " WHERE resolved_at IS NULL"
+        query += " ORDER BY detected_at DESC LIMIT 20"
+        
+        result = await db.execute(sa_text(query))
         events = result.mappings().all()
         
         if not events:
             print("   (No recorded divergence events)")
             return
             
-        print(f"{'TIMESTAMP':<25} {'USER_ID':<20} {'MODE':<10} {'MAG'}")
-        print("-" * 60)
+        print(f"{'ID':<6} {'TIMESTAMP':<20} {'USER_ID':<15} {'MODE':<10} {'MAG':<6} {'STATUS'}")
+        print("-" * 80)
         for ev in events:
-            print(f"{str(ev['detected_at'])[:19]:<25} {ev['user_id']:<20} {ev['mode']:<10} {ev['magnitude']:.2f}")
+            status = "🔴 ACTIVE" if not ev['resolved_at'] else "🟢 RESOLVED"
+            ts = str(ev['detected_at'])[:19]
+            print(f"{ev['id']:<6} {ts:<20} {ev['user_id']:<15} {ev['mode']:<10} {ev['magnitude']:<6.2f} {status}")
+
+async def resolve_event(sw: ShadowWatch, event_id: int, resolution: str, notes: str):
+    """Resolve a specific divergence event"""
+    print(f"\n✅ Resolving Event {event_id} as {resolution}...")
+    res = await sw.resolve_divergence(event_id, resolution, notes)
+    if res.get("success"):
+        print(f"✨ Successfully resolved event {event_id} for user {res['user_id']}")
+    else:
+        print(f"❌ Error: {res.get('error')}")
 
 def main():
     parser = argparse.ArgumentParser(description="Shadow Watch Admin CLI")
@@ -84,8 +98,17 @@ def main():
     inspect_parser = subparsers.add_parser("inspect-user", help="Inspect a specific user")
     inspect_parser.add_argument("user_id", help="The user ID to inspect")
     
-    # list-divergences
-    subparsers.add_parser("list-divergences", help="List recent divergence events")
+    # events (was list-divergences)
+    events_parser = subparsers.add_parser("events", help="List recent divergence events")
+    events_parser.add_argument("--unresolved", action="store_true", help="Show only unresolved events")
+    
+    # resolve
+    resolve_parser = subparsers.add_parser("resolve", help="Resolve a divergence event")
+    resolve_parser.add_argument("event_id", type=int, help="The ID of the event to resolve")
+    resolve_parser.add_argument("--type", required=True, 
+                                choices=['false_positive', 'legitimate_change', 'confirmed_attack', 'user_verified'],
+                                help="The resolution type")
+    resolve_parser.add_argument("--notes", default="", help="Optional notes for resolution")
     
     args = parser.parse_args()
     
@@ -103,8 +126,10 @@ def main():
     
     if args.command == "inspect-user":
         asyncio.run(inspect_user(sw, args.user_id))
-    elif args.command == "list-divergences":
-        asyncio.run(list_divergences(sw))
+    elif args.command == "events":
+        asyncio.run(list_divergences(sw, args.unresolved))
+    elif args.command == "resolve":
+        asyncio.run(resolve_event(sw, args.event_id, args.type, args.notes))
 
 if __name__ == "__main__":
     main()

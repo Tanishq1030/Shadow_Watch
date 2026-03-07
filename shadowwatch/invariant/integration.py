@@ -180,6 +180,7 @@ async def _log_divergence_event(
     db_session: AsyncSession,
     state: InvariantState,
     distance: float,
+    deltas: dict[str, float],
 ) -> None:
     """Log a divergence event to divergence_events table for forensic review."""
     from sqlalchemy import text as sa_text
@@ -202,7 +203,7 @@ async def _log_divergence_event(
             "magnitude": float(min(state.divergence_accumulated, 1.0)),
             "velocity": float(state.divergence_velocity),
             "confidence": float(state.continuity_confidence),
-            "feature_deltas": json.dumps({"distance": float(distance)}),
+            "feature_deltas": json.dumps(deltas),
         },
     )
 
@@ -254,9 +255,9 @@ async def calculate_continuity_impl(
     if state.sample_count > 0:
         from shadowwatch.invariant.continuity import get_variance_from_m2
         variance = get_variance_from_m2(state.baseline_variance, state.sample_count)
-        distance = calculate_distance(x_t, state.baseline_vector, variance)
+        distance, deltas = calculate_distance(x_t, state.baseline_vector, variance)
     else:
-        distance = 0.0
+        distance, deltas = 0.0, {}
 
     # 5. Update baseline (Welford's online algorithm)
     state = update_baseline_welford(state, x_t)
@@ -292,7 +293,7 @@ async def calculate_continuity_impl(
 
     # 12. Log divergence event when adversarial signal is present
     if classification == "diverging" and state.divergence_mode:
-        await _log_divergence_event(db_session, state, distance)
+        await _log_divergence_event(db_session, state, distance, deltas)
 
     await db_session.commit()
 

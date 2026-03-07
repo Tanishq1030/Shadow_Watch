@@ -388,6 +388,62 @@ class ShadowWatch:
                 window_hours=window if window is not None else 24
             )
 
+    async def resolve_divergence(
+        self,
+        event_id: int,
+        resolution: str,
+        notes: Optional[str] = None
+    ) -> Dict:
+        """
+        Resolve a divergence alert.
+        
+        Args:
+            event_id:   ID of the divergence_event
+            resolution: false_positive | legitimate_change | confirmed_attack | user_verified
+            notes:      Analyst notes
+            
+        Returns:
+            {"success": bool, "user_id": str}
+        """
+        from datetime import datetime, timezone
+        from sqlalchemy import text as sa_text
+        
+        async with self.AsyncSessionLocal() as db:
+            # 1. Update event
+            result = await db.execute(sa_text(
+                "UPDATE divergence_events "
+                "SET resolved_at = :now, resolution_type = :res, notes = :notes "
+                "WHERE id = :id RETURNING user_id"
+            ), {
+                "now": datetime.now(timezone.utc), 
+                "res": resolution, 
+                "notes": notes, 
+                "id": event_id
+            })
+            
+            row = result.fetchone()
+            if not row:
+                return {"success": False, "error": "Event not found"}
+                
+            user_id = row[0]
+            
+            # 2. Baseline tuning if legitimate_change
+            if resolution == "legitimate_change":
+                # We clear the divergence metrics but keep the sample_count 
+                # moderately high (5) so confidence doesn't drop to zero,
+                # but the engine begins learning the 'new' normal immediately.
+                await db.execute(sa_text(
+                    "UPDATE invariant_state "
+                    "SET divergence_accumulated = 0.0, "
+                    "    divergence_velocity = 0.0, "
+                    "    divergence_mode = NULL, "
+                    "    sample_count = GREATEST(sample_count, 5) "
+                    "WHERE user_id = :u"
+                ), {"u": user_id})
+                
+            await db.commit()
+            return {"success": True, "event_id": event_id, "user_id": user_id}
+
     async def pre_auth_intent(
         self,
         identifier: str,
