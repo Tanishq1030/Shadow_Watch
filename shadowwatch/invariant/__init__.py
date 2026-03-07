@@ -15,6 +15,7 @@ from .continuity import (
     temporal_decay,
     calculate_continuity_score,
     calculate_confidence,
+    update_divergence,
 )
 
 __all__ = [
@@ -25,4 +26,5 @@ __all__ = [
     "temporal_decay",
     "calculate_continuity_score",
     "calculate_confidence",
+    "update_divergence",
 ]

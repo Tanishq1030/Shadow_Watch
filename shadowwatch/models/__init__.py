@@ -16,7 +16,7 @@ Usage:
         await conn.run_sync(Base.metadata.create_all)
 """
 
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 
 # CRITICAL: Single shared Base for ALL models
 # This ensures all tables use the same metadata object
@@ -26,10 +26,18 @@ Base = declarative_base()
 from shadowwatch.models.activity import UserActivityEvent
 from shadowwatch.models.interest import UserInterest
 from shadowwatch.models.library import LibraryVersion
+from shadowwatch.models.device import UserDeviceHistory
+from shadowwatch.models.ip_history import UserIPHistory
+from shadowwatch.models.pre_auth import PreAuthSession
+from shadowwatch.models.heatmap import UserActivityHeatmap
 
 __all__ = [
     "UserActivityEvent",
     "UserInterest",
     "LibraryVersion",
-    "Base"
+    "UserDeviceHistory",
+    "UserIPHistory",
+    "PreAuthSession",
+    "UserActivityHeatmap",
+    "Base",
 ]

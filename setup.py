@@ -29,6 +29,7 @@ setup(
     install_requires=[
         "sqlalchemy>=2.0.0",
         "numpy>=1.24.0",
+        "asyncpg>=0.28.0",
     ],
     extras_require={
         "dev": [
@@ -46,5 +47,10 @@ setup(
         "Bug Reports": "https://github.com/Tanishq1030/Shadow_Watch/issues",
         "Source": "https://github.com/Tanishq1030/Shadow_Watch",
         "Documentation": "https://github.com/Tanishq1030/Shadow_Watch#readme",
+    },
+    entry_points={
+        "console_scripts": [
+            "sw-admin=shadowwatch.cli:main",
+        ],
     },
 )
