@@ -30,6 +30,8 @@ setup(
         "sqlalchemy>=2.0.0",
         "numpy>=1.24.0",
         "asyncpg>=0.28.0",
+        "httpx>=0.25.0",
+        "structlog>=23.1.0",
     ],
     extras_require={
         "dev": [

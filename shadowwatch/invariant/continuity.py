@@ -35,6 +35,20 @@ CONFIDENCE_K = 50  # Samples for 63% confidence
 # Distance epsilon
 DISTANCE_EPSILON = 1e-6
 
+# Human-readable feature labels for forensics
+FEATURE_LABELS = {
+    0: "session_duration",
+    1: "inter_session_gap",
+    2: "action_frequency",
+    3: "tod_entropy",
+    4: "action_diversity",
+    5: "primary_action_ratio",
+    6: "sequence_stability",
+    7: "entity_focus_gini",
+    8: "entity_churn",
+    9: "entity_revisit_rate",
+}
+
 
 # =====================================================
 # Feature Extraction
@@ -238,14 +252,12 @@ def calculate_distance(
     mu: np.ndarray,
     sigma_squared: np.ndarray,
     epsilon: float = DISTANCE_EPSILON
-) -> float:
+) -> tuple[float, dict[str, float]]:
     """
     Calculate variance-normalized distance
     
     Formula:
         d_t = √(Σᵢ ((x_t[i] − μ[i])² / (σ²[i] + ε)))
-    
-    Similar to Mahalanobis distance but assumes diagonal covariance.
     
     Args:
         x_t: Current feature vector
@@ -254,21 +266,24 @@ def calculate_distance(
         epsilon: Small constant to prevent division by zero
     
     Returns:
-        d_t: Distance (scalar, ≥ 0)
+        (total_distance, feature_deltas)
+            - total_distance: Euclidean distance of normalized deltas
+            - feature_deltas: {label: normalized_distance} for each feature
     """
-    # Prevent division by zero
     variance_norm = sigma_squared + epsilon
-    
-    # Squared difference
     squared_diff = (x_t - mu) ** 2
-    
-    # Normalize by variance and sum
     normalized_squared_diff = squared_diff / variance_norm
     
-    # Take square root
-    distance = np.sqrt(np.sum(normalized_squared_diff))
+    feature_distances = np.sqrt(normalized_squared_diff)
+    total_distance = np.sqrt(np.sum(normalized_squared_diff))
     
-    return float(distance)
+    # Create forensic dictionary
+    deltas = {
+        FEATURE_LABELS[i]: float(feature_distances[i])
+        for i in range(len(feature_distances))
+    }
+    
+    return float(total_distance), deltas
 
 
 # =====================================================
@@ -472,4 +487,27 @@ def update_divergence(
         # Sufficiently recovered — clear the mode
         state.divergence_mode = None
 
+    return state
+
+
+def reset_divergence_if_recovered(
+    state: InvariantState,
+    consecutive_high_score_steps: int = 5
+) -> InvariantState:
+    """
+    Decay divergence if the user has stabilized.
+    
+    If the continuity score is high for multiple steps, it suggests the 
+    'new' behavior is now the stable baseline for this actor.
+    
+    Args:
+        state: InvariantState
+        consecutive_high_score_steps: Not implemented tracking here, 
+                                      using simpler score-based decay.
+    """
+    if state.continuity_score > 0.8:
+        state.divergence_accumulated *= 0.8
+        if state.divergence_accumulated < 0.1:
+            state.divergence_mode = None
+            
     return state
