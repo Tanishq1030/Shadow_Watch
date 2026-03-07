@@ -13,6 +13,7 @@ from shadowwatch.core.scorer import generate_library_snapshot
 from shadowwatch.core.fingerprint import verify_fingerprint
 from shadowwatch.core.trust_score import calculate_trust_score
 from shadowwatch.models import Base  # For init_database()
+from shadowwatch.utils.logger import logger
 
 
 async def _persist_trust_signals(
@@ -123,7 +124,8 @@ class ShadowWatch:
     def __init__(
         self,
         database_url: str,
-        redis_url: Optional[str] = None
+        redis_url: Optional[str] = None,
+        webhook_url: Optional[str] = None
     ):
         """
         Shadow Watch - Behavioral Intelligence Library
@@ -131,6 +133,7 @@ class ShadowWatch:
         Args:
             database_url: SQLAlchemy async database URL (e.g., "postgresql+asyncpg://...")
             redis_url: Optional Redis URL for shared caching
+            webhook_url: Optional endpoint to send security alerts (POST JSON)
 
         Examples:
             sw = ShadowWatch(database_url="postgresql+asyncpg://user:pass@host/db")
@@ -170,6 +173,9 @@ class ShadowWatch:
 
         # Shared cache (Redis for production, Memory for dev)
         self.cache: CacheBackend = create_cache(redis_url)
+        
+        # Alerting configuration
+        self.webhook_url = webhook_url
 
         # Initialize all features (no license gates)
         self._init_core()
@@ -184,7 +190,7 @@ class ShadowWatch:
         self.library = LibraryEngine(self.AsyncSessionLocal)
         self.profile = ProfileEngine(self.library)
 
-        print("✅ Shadow Watch initialized")
+        logger.info("Shadow Watch core engines initialized")
 
     async def init_database(self):
         """
@@ -348,7 +354,12 @@ class ShadowWatch:
         from shadowwatch.invariant.integration import calculate_continuity_impl
 
         async with self.AsyncSessionLocal() as db:
-            return await calculate_continuity_impl(db, subject_id, context)
+            return await calculate_continuity_impl(
+                db, 
+                subject_id, 
+                context, 
+                alert_callback=self._fire_webhook
+            )
 
     async def detect_divergence(
         self,
@@ -444,6 +455,23 @@ class ShadowWatch:
             await db.commit()
             return {"success": True, "event_id": event_id, "user_id": user_id}
 
+    async def _fire_webhook(self, event_data: Dict) -> None:
+        """
+        Send a security alert to the configured webhook_url.
+        
+        Silent fail to ensure it doesn't block the main flow.
+        """
+        if not self.webhook_url:
+            return
+            
+        import httpx
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.post(self.webhook_url, json=event_data, timeout=5.0)
+        except Exception as e:
+            # We don't have the structured logger yet, so just pass
+            pass
+
     async def pre_auth_intent(
         self,
         identifier: str,
@@ -531,4 +559,40 @@ class ShadowWatch:
                 "risk_level": risk_level,
                 "action": action,
                 "session_id": session_id
+            }
+
+    async def get_system_stats(self) -> Dict:
+        """
+        Get global system metrics.
+        
+        Returns:
+            {
+                "total_monitored_users": int,
+                "unresolved_alerts":     int,
+                "last_system_activity":  datetime
+            }
+        """
+        from sqlalchemy import text as sa_text
+        
+        async with self.AsyncSessionLocal() as db:
+            # 1. Total active baselines
+            res_users = await db.execute(sa_text("SELECT COUNT(*) FROM invariant_state"))
+            total_users = res_users.scalar()
+            
+            # 2. Unresolved divergence events
+            res_events = await db.execute(sa_text(
+                "SELECT COUNT(*) FROM divergence_events WHERE resolved_at IS NULL"
+            ))
+            unresolved_alerts = res_events.scalar()
+            
+            # 3. Last activity detected
+            res_last = await db.execute(sa_text(
+                "SELECT MAX(last_seen_at) FROM invariant_state"
+            ))
+            last_activity = res_last.scalar()
+            
+            return {
+                "total_monitored_users": total_users,
+                "unresolved_alerts": unresolved_alerts,
+                "last_system_activity": last_activity,
             }

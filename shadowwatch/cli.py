@@ -88,11 +88,24 @@ async def resolve_event(sw: ShadowWatch, event_id: int, resolution: str, notes: 
     else:
         print(f"❌ Error: {res.get('error')}")
 
+async def show_stats(sw: ShadowWatch):
+    """Show global system metrics"""
+    print("\n📊 Shadow Watch System Stats")
+    print("=" * 50)
+    stats = await sw.get_system_stats()
+    print(f"Total Monitored Users:  {stats['total_monitored_users']}")
+    print(f"Unresolved Alerts:      {stats['unresolved_alerts']}")
+    last_act = stats['last_system_activity']
+    print(f"Last System Activity:   {str(last_act)[:19] if last_act else 'N/A'}")
+
 def main():
     parser = argparse.ArgumentParser(description="Shadow Watch Admin CLI")
     parser.add_argument("--db-url", help="PostgreSQL connection string")
     
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
+    
+    # stats
+    subparsers.add_parser("stats", help="Show global system metrics")
     
     # inspect-user
     inspect_parser = subparsers.add_parser("inspect-user", help="Inspect a specific user")
@@ -124,7 +137,9 @@ def main():
         
     sw = ShadowWatch(database_url=db_url)
     
-    if args.command == "inspect-user":
+    if args.command == "stats":
+        asyncio.run(show_stats(sw))
+    elif args.command == "inspect-user":
         asyncio.run(inspect_user(sw, args.user_id))
     elif args.command == "events":
         asyncio.run(list_divergences(sw, args.unresolved))

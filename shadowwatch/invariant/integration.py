@@ -212,6 +212,7 @@ async def calculate_continuity_impl(
     db_session: AsyncSession,
     subject_id: str,
     context: Optional[Dict] = None,
+    alert_callback: Optional[callable] = None,
 ) -> Dict:
     """
     Calculate temporal actor persistence (ATO detection core).
@@ -220,6 +221,7 @@ async def calculate_continuity_impl(
         db_session: SQLAlchemy async session
         subject_id: User/subject identifier (may be str or int)
         context:    Optional contextual signals (IP, device, location)
+        alert_callback: Async function called when divergence is detected
 
     Returns::
         {
@@ -294,6 +296,18 @@ async def calculate_continuity_impl(
     # 12. Log divergence event when adversarial signal is present
     if classification == "diverging" and state.divergence_mode:
         await _log_divergence_event(db_session, state, distance, deltas)
+        
+        # 13. Trigger external alert
+        if alert_callback:
+            alert_data = {
+                "user_id": subject_id,
+                "mode": state.divergence_mode,
+                "score": float(state.continuity_score),
+                "magnitude": float(state.divergence_accumulated),
+                "feature_deltas": deltas,
+                "detected_at": current_time,
+            }
+            await alert_callback(alert_data)
 
     await db_session.commit()
 
