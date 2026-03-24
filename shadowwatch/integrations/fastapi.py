@@ -7,7 +7,6 @@ Automatically tracks user activity on FastAPI routes
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from typing import Callable, Optional
-import re
 
 
 class ShadowWatchMiddleware(BaseHTTPMiddleware):
@@ -58,32 +57,33 @@ class ShadowWatchMiddleware(BaseHTTPMiddleware):
     
     def _default_entity_extractor(self, request: Request) -> Optional[str]:
         """
-        Default entity extraction: look for symbol/ticker in path
+        Default entity extraction: try to pull a generic identifier from the request.
         
-        Matches patterns like:
-        - /stocks/AAPL
-        - /crypto/BTC
-        - /assets/MSFT
+        Priority:
+        1) Path params (slug/id/entity_id/resource_id/item_id/symbol/ticker/asset)
+        2) Query params with similar keys
+        3) Last path segment for REST-style routes (e.g., /articles/quantum-computing)
         """
         path = request.url.path
         
         # Try to extract from path params first
         if hasattr(request, 'path_params'):
-            for key in ['symbol', 'ticker', 'asset', 'entity_id']:
+            for key in ['entity_id', 'slug', 'id', 'item_id', 'resource_id', 'symbol', 'ticker', 'asset']:
                 if key in request.path_params:
                     return request.path_params[key]
         
-        # Fallback: regex pattern matching
-        patterns = [
-            r'/(?:stocks|crypto|forex|commodities)/([A-Z]{1,10})',
-            r'/assets/([A-Z0-9]{1,10})',
-            r'/symbols/([A-Z]{1,10})'
-        ]
+        # Query params fallback
+        if hasattr(request, "query_params"):
+            for key in ['entity_id', 'slug', 'id', 'item_id', 'resource_id', 'symbol', 'ticker', 'asset']:
+                if key in request.query_params:
+                    return request.query_params.get(key)
         
-        for pattern in patterns:
-            match = re.search(pattern, path)
-            if match:
-                return match.group(1)
+        # Fallback: use the last path segment if available and not empty
+        segments = [seg for seg in path.split("/") if seg]
+        if len(segments) >= 2:
+            candidate = segments[-1]
+            if 0 < len(candidate) <= 100:
+                return candidate
         
         return None
     
@@ -91,10 +91,11 @@ class ShadowWatchMiddleware(BaseHTTPMiddleware):
         """
         Default action mapping based on HTTP method and path
         
-        GET = view
-        POST = trade (if /trade or /order in path)
-        POST = search (if /search in path)
-        etc.
+        Designed to be domain-agnostic:
+        - GET -> view
+        - POST -> create (unless search/trade/watchlist/alert patterns detected)
+        - PUT/PATCH -> update
+        - DELETE -> delete
         """
         method = request.method
         path = request.url.path.lower()
@@ -111,7 +112,11 @@ class ShadowWatchMiddleware(BaseHTTPMiddleware):
             elif "alert" in path:
                 return "alert_set"
             else:
-                return "view"
+                return "create"
+        elif method in {"PUT", "PATCH"}:
+            return "update"
+        elif method == "DELETE":
+            return "delete"
         else:
             return "view"
     

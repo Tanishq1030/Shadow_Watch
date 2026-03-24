@@ -35,7 +35,8 @@ class UserInterest(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False, index=True)
     symbol = Column(String(20), nullable=False, index=True)
-    asset_type = Column(String(20), default="stock")
+    # Domain-agnostic classification of the entity (e.g., product, article, playlist)
+    asset_type = Column(String(20), default="generic")
     score = Column(Float, default=0.0)
     activity_count = Column(Integer, default=0)
     is_pinned = Column(Boolean, default=False)  # Auto-pinned for trades
