@@ -3,13 +3,14 @@ Tracking Engine - FREE TIER
 
 Handles activity ingestion and storage.
 """
-from typing import Dict, Optional, Literal
+from typing import Dict, Optional
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from shadowwatch.models import UserActivityEvent, UserInterest
 
-ActivityAction = Literal["view", "trade", "watchlist_add", "alert_set", "search"]
+# Actions are intentionally open-ended to stay domain agnostic
+ActivityAction = str
 
 # Action weights for scoring
 ACTION_WEIGHTS = {
@@ -56,7 +57,7 @@ class TrackingEngine:
             user_id: User identifier
             entity_id: Entity being interacted with
             action: Action type (view, search, like, etc.)
-            metadata: Optional additional context
+            metadata: Optional additional context (e.g., {"asset_type": "article"})
         
         Returns:
             {"tracked": True, "activity_id": int}
@@ -92,12 +93,14 @@ class TrackingEngine:
         Updates happen asynchronously.
         """
         # 1. Record raw activity event (audit trail)
+        metadata_dict = event_metadata or {}
+        asset_type = metadata_dict.get("asset_type", "generic")
         event = UserActivityEvent(
             user_id=user_id,
             symbol=symbol,
-            asset_type="stock",
+            asset_type=asset_type,
             action_type=action,
-            event_metadata=event_metadata or {},
+            event_metadata=metadata_dict,
             occurred_at=datetime.now(timezone.utc)
         )
         db.add(event)
@@ -118,9 +121,14 @@ class TrackingEngine:
                 score=0.0,
                 activity_count=0,
                 first_seen=datetime.now(timezone.utc),
-                last_interaction=datetime.now(timezone.utc)
+                last_interaction=datetime.now(timezone.utc),
+                asset_type=asset_type
             )
             db.add(interest)
+        else:
+            # Update asset classification if provided
+            if "asset_type" in metadata_dict:
+                interest.asset_type = asset_type
         
         # 3. Update score using weighted activity
         weight = ACTION_WEIGHTS.get(action, 1)
@@ -128,10 +136,16 @@ class TrackingEngine:
         interest.score = min(1.0, interest.score + (weight * 0.05))
         interest.last_interaction = datetime.now(timezone.utc)
         
-        # 4. Auto-pin if action is "trade" (investment-based)
-        if action == "trade" and event_metadata and event_metadata.get("portfolio_value"):
+        # 4. Auto-pin if explicitly requested or trade with investment metadata
+        should_pin = False
+        if metadata_dict.get("pin_interest") is True:
+            should_pin = True
+        elif action == "trade" and metadata_dict.get("portfolio_value"):
+            should_pin = True
+            interest.portfolio_value = metadata_dict["portfolio_value"]
+
+        if should_pin:
             interest.is_pinned = True
-            interest.portfolio_value = event_metadata["portfolio_value"]
         
         # 5. Update Activity Heatmap (for temporal signals)
         from shadowwatch.models.heatmap import UserActivityHeatmap

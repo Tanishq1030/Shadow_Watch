@@ -8,9 +8,8 @@ from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from shadowwatch.models import UserActivityEvent, UserInterest
-from typing import Literal
 
-ActivityAction = Literal["view", "trade", "watchlist_add", "alert_set", "search"]
+ActivityAction = str
 
 # Action weights for scoring
 ACTION_WEIGHTS = {
@@ -35,8 +34,8 @@ async def track_activity(
     Args:
         db: Database session (injected by caller)
         user_id: User identifier
-        symbol: Asset symbol (e.g., "AAPL")
-        action: Action type ("view", "trade", "search", etc.)
+        symbol: Entity identifier (e.g., "article-123" or "AAPL")
+        action: Action type ("view", "purchase", "search", etc.)
         event_metadata: Optional additional context
     
     Implementation: Week 1 Complete ✅
@@ -44,15 +43,16 @@ async def track_activity(
     This runs SILENTLY - no user-visible effects
     Updates happen asynchronously
     """
-    symbol_upper = symbol.upper()
+    metadata_dict = event_metadata or {}
+    asset_type = metadata_dict.get("asset_type", "generic")
     
     # 1. Record raw activity event (audit trail)
     event = UserActivityEvent(
         user_id=user_id,
-        symbol=symbol_upper,
-        asset_type="stock",
+        symbol=symbol,
+        asset_type=asset_type,
         action_type=action,
-        event_metadata=event_metadata or {},
+        event_metadata=metadata_dict,
         occurred_at=datetime.now(timezone.utc)
     )
     db.add(event)
@@ -60,7 +60,7 @@ async def track_activity(
     # 2. Update or create aggregated interest score
     stmt = select(UserInterest).where(
         UserInterest.user_id == user_id,
-        UserInterest.symbol == symbol_upper
+        UserInterest.symbol == symbol
     )
     result = await db.execute(stmt)
     interest = result.scalar_one_or_none()
@@ -69,13 +69,17 @@ async def track_activity(
         # Create new interest
         interest = UserInterest(
             user_id=user_id,
-            symbol=symbol_upper,
+            symbol=symbol,
             score=0.0,
             activity_count=0,
             first_seen=datetime.now(timezone.utc),
-            last_interaction=datetime.now(timezone.utc)
+            last_interaction=datetime.now(timezone.utc),
+            asset_type=asset_type
         )
         db.add(interest)
+    else:
+        if "asset_type" in metadata_dict:
+            interest.asset_type = asset_type
     
     # 3. Update score using weighted activity
     weight = ACTION_WEIGHTS.get(action, 1)
@@ -83,9 +87,15 @@ async def track_activity(
     interest.score = min(1.0, interest.score + (weight * 0.05))
     interest.last_interaction = datetime.now(timezone.utc)
     
-    # 4. Auto-pin if action is "trade" (investment-based)
-    if action == "trade" and event_metadata and event_metadata.get("portfolio_value"):
+    # 4. Auto-pin if explicitly requested or trade with investment metadata
+    should_pin = False
+    if metadata_dict.get("pin_interest") is True:
+        should_pin = True
+    elif action == "trade" and metadata_dict.get("portfolio_value"):
+        should_pin = True
+        interest.portfolio_value = metadata_dict["portfolio_value"]
+
+    if should_pin:
         interest.is_pinned = True
-        interest.portfolio_value = event_metadata["portfolio_value"]
     
     await db.commit()

@@ -28,22 +28,32 @@ async def main():
     
     user_id = 123
     
-    # User views AAPL
-    await sw.track(user_id=user_id, entity_id="AAPL", action="view")
-    print(f"  ✓ Tracked: User {user_id} viewed AAPL")
-    
-    # User searches for MSFT
-    await sw.track(user_id=user_id, entity_id="MSFT", action="search")
-    print(f"  ✓ Tracked: User {user_id} searched MSFT")
-    
-    # User trades TSLA (high weight!)
+    # User reads an article
     await sw.track(
         user_id=user_id,
-        entity_id="TSLA",
-        action="trade",
-        metadata={"portfolio_value": 5000.0, "shares": 10}
+        entity_id="article-quantum-computing",
+        action="view",
+        metadata={"asset_type": "article"}
     )
-    print(f"  ✓ Tracked: User {user_id} traded TSLA\n")
+    print(f"  ✓ Tracked: User {user_id} viewed an article")
+    
+    # User searches for a product
+    await sw.track(
+        user_id=user_id,
+        entity_id="product-456",
+        action="search",
+        metadata={"asset_type": "product"}
+    )
+    print(f"  ✓ Tracked: User {user_id} searched a product")
+    
+    # User purchases a subscription (high weight if mapped to trade)
+    await sw.track(
+        user_id=user_id,
+        entity_id="pro-subscription",
+        action="trade",
+        metadata={"portfolio_value": 5000.0, "plan": "pro", "asset_type": "subscription"}
+    )
+    print(f"  ✓ Tracked: User {user_id} upgraded subscription\n")
     
     # 3. Get user's behavioral profile
     print("🧠 Generating behavioral profile...")
@@ -80,7 +90,7 @@ async def main():
     print("\n✅ Demo complete!")
     print("\n💡 Key Takeaways:")
     print("  1. Shadow Watch tracks silently (no user interaction)")
-    print("  2. Trades are weighted 10x higher than views")
+    print("  2. High-value actions (purchases/trades) can be weighted higher than views")
     print("  3. Fingerprints are generated automatically")
     print("  4. Trust scores protect against account takeover")
 

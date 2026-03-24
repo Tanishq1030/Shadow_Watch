@@ -24,7 +24,7 @@ from shadowwatch import ShadowWatch
 sw = ShadowWatch(database_url="postgresql+asyncpg://localhost/db")
 
 # Track activity
-await sw.track(user_id=123, entity_id="AAPL", action="view")
+await sw.track(user_id=123, entity_id="article_123", action="view")
 
 # Get user profile
 profile = await sw.get_profile(user_id=123)

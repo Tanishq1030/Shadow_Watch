@@ -137,7 +137,7 @@ class ShadowWatch:
 
         Examples:
             sw = ShadowWatch(database_url="postgresql+asyncpg://user:pass@host/db")
-            await sw.track(user_id=123, entity_id="AAPL", action="view")
+            await sw.track(user_id=123, entity_id="article_123", action="view")
 
             profile = await sw.get_profile(user_id=123)
             continuity = await sw.calculate_continuity("user_123")
