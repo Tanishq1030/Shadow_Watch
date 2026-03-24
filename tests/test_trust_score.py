@@ -121,14 +121,16 @@ class TestCalculateTrustScore:
 
     @patch("shadowwatch.core.trust_score._score_api_behavior")
     @patch("shadowwatch.core.trust_score._score_time_pattern")
+    @patch("shadowwatch.core.trust_score.score_behavioral_anomaly")
     @patch("shadowwatch.core.trust_score.verify_fingerprint")
     @patch("shadowwatch.core.trust_score._score_ip")
     @patch("shadowwatch.core.trust_score._score_device")
-    async def test_calculate_trust_score_ensemble(self, mock_device, mock_ip, mock_fp, mock_time, mock_api):
+    async def test_calculate_trust_score_ensemble(self, mock_device, mock_ip, mock_fp, mock_anomaly, mock_time, mock_api):
         db = AsyncMock()
         mock_ip.return_value = 1.0     # Trusted IP
         mock_device.return_value = 1.0 # Trusted Device
         mock_fp.return_value = 1.0     # Perfect behavioral match
+        mock_anomaly.return_value = 1.0 # Normal interaction patterns
         mock_time.return_value = 1.0   # On pattern
         mock_api.return_value = 1.0    # High jitter (human)
         
@@ -148,14 +150,16 @@ class TestCalculateTrustScore:
 
     @patch("shadowwatch.core.trust_score._score_api_behavior")
     @patch("shadowwatch.core.trust_score._score_time_pattern")
+    @patch("shadowwatch.core.trust_score.score_behavioral_anomaly")
     @patch("shadowwatch.core.trust_score.verify_fingerprint")
     @patch("shadowwatch.core.trust_score._score_ip")
     @patch("shadowwatch.core.trust_score._score_device")
-    async def test_calculate_trust_score_high_risk(self, mock_device, mock_ip, mock_fp, mock_time, mock_api):
+    async def test_calculate_trust_score_high_risk(self, mock_device, mock_ip, mock_fp, mock_anomaly, mock_time, mock_api):
         db = AsyncMock()
         mock_ip.return_value = 0.4     # New IP/Country
         mock_device.return_value = 0.45 # New Device
         mock_fp.return_value = 0.0     # Zero behavioral match
+        mock_anomaly.return_value = 0.0 # Fully anomalous patterns
         mock_time.return_value = 0.3   # Off pattern
         mock_api.return_value = 0.3    # Bot jitter
         

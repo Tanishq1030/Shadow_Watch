@@ -1,5 +1,21 @@
 """
 All five signals (IP, Device, Behavioral, Time, API) are now implemented.
+
+Behavioral signal (20 %) — two-layer composite
+----------------------------------------------
+The behavioral trust factor combines:
+
+  1. Jaccard entity-set overlap (fingerprint.py)
+     Answers "is this user accessing the same set of entities as before?"
+     — detects silent watchlist/portfolio swaps after an account take-over.
+
+  2. Localized behavioral anomaly model (behavioral.py)
+     Answers "do the *patterns* of interaction (action mix, velocity,
+     entity novelty) match this user's learned baseline?"
+     — catches lateral-movement scraping, high-velocity credential
+     stuffing, and action-type anomalies that Jaccard cannot see.
+
+The two scores are blended 50 / 50 before being fed into the ensemble.
 """
 
 import math
@@ -10,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from shadowwatch.core.fingerprint import verify_fingerprint
+from shadowwatch.core.behavioral import score_behavioral_anomaly
 
 
 # =====================================================
@@ -245,6 +262,27 @@ async def _score_api_behavior(
 # Main ensemble function
 # =====================================================
 
+async def _score_behavioral(
+    db: AsyncSession,
+    user_id: int,
+    top_entities: Optional[Set[str]],
+    session_events: Optional[List[dict]],
+) -> float:
+    """
+    Behavioral trust factor — two-layer composite score.
+
+    Combines:
+      • Jaccard entity-set similarity (fingerprint match, 50 %)
+      • Localized interaction-pattern model  (anomaly model, 50 %)
+
+    Both sub-scores are in [0, 1]; a simple average is taken so that
+    either signal alone can depress the behavioral factor.
+    """
+    jaccard_score = await verify_fingerprint(db, user_id, top_entities)
+    anomaly_score = await score_behavioral_anomaly(db, user_id, session_events)
+    return (jaccard_score + anomaly_score) / 2.0
+
+
 async def calculate_trust_score(
     db: AsyncSession,
     user_id: int,
@@ -262,6 +300,8 @@ async def calculate_trust_score(
             "user_agent":         Optional[str],
             "device_fingerprint": Optional[str],
             "top_entities":       Optional[Set[str]], # client's known entity set
+            "session_events":     Optional[List[dict]], # live session events
+                                  # Each dict: {action_type, symbol, occurred_at}
             "timestamp":          Optional[datetime]
         }
 
@@ -273,9 +313,9 @@ async def calculate_trust_score(
             "factors": {
                 "ip_location": float,
                 "device":      float,
-                "behavioral":  float,
-                "time_pattern":  None,   # TODO
-                "api_behavior":  None,   # TODO
+                "behavioral":  float,   # Jaccard + localized anomaly model
+                "time_pattern": float,
+                "api_behavior": float,
             }
         }
     """
@@ -283,7 +323,8 @@ async def calculate_trust_score(
     country         = request_context.get("country")
     user_agent      = request_context.get("user_agent")
     device_fp       = request_context.get("device_fingerprint")
-    top_entities: Optional[Set[str]] = request_context.get("top_entities")
+    top_entities: Optional[Set[str]]   = request_context.get("top_entities")
+    session_events: Optional[List[dict]] = request_context.get("session_events")
     dt              = request_context.get("timestamp") or datetime.now(timezone.utc)
 
     # --- Signal 1: IP / Location (30%) ---
@@ -292,8 +333,8 @@ async def calculate_trust_score(
     # --- Signal 2: Device Fingerprint (25%) ---
     device_score = await _score_device(db, user_id, device_fp, user_agent)
 
-    # --- Signal 3: Behavioral fingerprint / Jaccard (20%) ---
-    behavioral_score = await verify_fingerprint(db, user_id, top_entities)
+    # --- Signal 3: Behavioral — Jaccard + localized anomaly model (20%) ---
+    behavioral_score = await _score_behavioral(db, user_id, top_entities, session_events)
 
     # --- Signal 4: Temporal Pattern (15%) ---
     time_score = await _score_time_pattern(db, user_id, dt)
@@ -311,11 +352,11 @@ async def calculate_trust_score(
 
     # Weighted ensemble
     trust_score = (
-        ip_score         * WEIGHTS["ip_location"]
-        + device_score   * WEIGHTS["device"]
+        ip_score           * WEIGHTS["ip_location"]
+        + device_score     * WEIGHTS["device"]
         + behavioral_score * WEIGHTS["behavioral"]
-        + time_score     * WEIGHTS["time_pattern"]
-        + api_score      * WEIGHTS["api_behavior"]
+        + time_score       * WEIGHTS["time_pattern"]
+        + api_score        * WEIGHTS["api_behavior"]
     )
     trust_score = max(0.0, min(1.0, trust_score))
 
